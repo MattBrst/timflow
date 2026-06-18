@@ -565,6 +565,7 @@ class River(LineSinkHoBase, HeadEquation):
         name="River",
         addtomodel=True,
     ):
+        """Initialize a steady head-specified line-sink."""
         self.storeinput(inspect.currentframe())
         LineSinkHoBase.__init__(
             self,
@@ -670,6 +671,7 @@ class Ditch(River):
         label=None,
         addtomodel=True,
     ):
+        """Initialize a steady discharge-specified line-sink."""
         self.storeinput(inspect.currentframe())
         River.__init__(
             self,
@@ -760,7 +762,7 @@ class LineSinkStringBase2(Element):
         self.nlayers = len(self.layers[0])
 
     def __repr__(self):
-        return self.name + " with nodes " + str(self.xy)
+        return self.name + " with " + len(self.xy) + " segments"
 
     def initialize(self):
         for ls in self.lslist:
@@ -928,6 +930,7 @@ class RiverString(LineSinkStringBase2):
         label=None,
         name="RiverString",
     ):
+        """Initialize a steady string of head-specified line-sinks."""
         if xy is None:
             xy = [(-1, 0), (1, 0)]
         self.storeinput(inspect.currentframe())
@@ -1080,6 +1083,7 @@ class DitchString(RiverString):
         dely=0,
         label=None,
     ):
+        """Initialize a steady string of discharge-specified line-sinks."""
         if xy is None:
             xy = [(-1, 0), (1, 0)]
         self.storeinput(inspect.currentframe())
@@ -1234,6 +1238,7 @@ class CollectorWell(DitchString):
         order=0,
         label=None,
     ):
+        """Initialize a steady collector well made of line-sink arms."""
         super().__init__(
             model,
             xy,
@@ -1307,6 +1312,7 @@ class RadialCollectorWell(CollectorWell):
         layers=0,
         label=None,
     ):
+        """Initialize a radial steady collector well."""
         if np.isscalar(angle):
             angle = np.deg2rad(angle) + np.linspace(0, 2 * np.pi, narms + 1)[:-1]
         else:
