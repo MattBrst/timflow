@@ -222,6 +222,7 @@ class LineSink(LineSinkBase):
         label=None,
         addtomodel=True,
     ):
+        """Initialize a transient line-sink with a specified discharge."""
         self.storeinput(inspect.currentframe())
         super().__init__(
             model,
@@ -380,7 +381,7 @@ class LineSinkStringBase(Element):
         self.lslist = []
 
     def __repr__(self):
-        return self.name + " with nodes " + str(zip(self.x, self.y, strict=False))
+        return self.name + f" with {self.nls} segments"
 
     def initialize(self):
         self.ncp = self.nls
