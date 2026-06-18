@@ -297,7 +297,7 @@ class River1D(LineSink1DBase, HeadEquation):
     xls : float
         x-coordinate of the linesink
     tsandh : str or list of tuples
-        list of tuples of the form (time, head) for head conditions or "fixed" for 
+        list of tuples of the form (time, head) for head conditions or "fixed" for
         a fixed head of zero.
     res : float
         resistance of the linesink
