@@ -591,8 +591,75 @@ class Model:
             qx[:, :, i], qy[:, :, i] = self.disvec(xg[i], yg[i], t, layers)
         return qx, qy
 
+    def head_array(self, x, y, t, layers=None, show_progress=False, parallel=False):
+        """Head for array of points.
+
+        Parameters
+        ----------
+        x : 1D array or list
+            x values of points
+        y : 1D array or list
+            y values of points
+        t : float or 1D array or list
+            times for which grid is returned
+        layers : integer, list or array, optional
+            layers for which grid is returned
+        show_progress : bool
+            show computation progress, by printing dots per row or with tqdm progressbar
+            when parallel is True. Default is False.
+        parallel : bool, optional
+            if `True`, computes head_array in parallel using multi threading,
+            by default `False`
+
+        Returns
+        -------
+        h : array size `nlayers, ntimes, npoints`
+        """
+        parallel, thread_map, tqdm = check_tqdm_parallel(parallel)
+        x = np.atleast_1d(x)
+        y = np.atleast_1d(y)
+        t = np.atleast_1d(t)
+        npts = len(x)
+        assert npts == len(y), "x and y must have the same length"
+        ntimes = len(t)
+        if layers is None:
+            nlayers = self.aq.find_aquifer_data(x[0], y[0]).naq
+        else:
+            nlayers = len(np.atleast_1d(layers))
+        h = np.empty((nlayers, ntimes, npts))
+        if not parallel:
+            for i in range(npts):
+                if show_progress:
+                    print(".", end="", flush=True)
+                h[:, :, i] = self.head(x[i], y[i], t, layers)
+        else:
+
+            def compute(i):
+                return i, self.head(x[i], y[i], t, layers)
+
+            results = thread_map(
+                compute,
+                range(npts),
+                total=npts,
+                desc="headgrid",
+                disable=not show_progress,
+                tqdm_class=tqdm,
+            )
+
+            for i, result in results:
+                h[:, :, i] = result
+        return h
+
     def headgrid(
-        self, xg, yg, t, layers=None, printrow=False, show_progress=False, parallel=False
+        self,
+        xg,
+        yg,
+        t,
+        layers=None,
+        printrow=False,
+        show_progress=False,
+        parallel=False,
+        grid_type="structured",
     ):
         """Grid of heads.
 
@@ -633,44 +700,18 @@ class Model:
             )
             show_progress = printrow
 
-        parallel, thread_map, tqdm = check_tqdm_parallel(parallel)
-
-        xg = np.atleast_1d(xg)
-        yg = np.atleast_1d(yg)
-        t = np.atleast_1d(t)
         nx = len(xg)
         ny = len(yg)
-        ntimes = len(t)
-        if layers is None:
-            nlayers = self.aq.find_aquifer_data(xg[0], yg[0]).naq
-        else:
-            nlayers = len(np.atleast_1d(layers))
-        t = np.atleast_1d(t)
-        h = np.empty((nlayers, ntimes, ny, nx))
-        if not parallel:
-            for j in range(ny):
-                if show_progress:
-                    print(".", end="", flush=True)
-                for i in range(nx):
-                    h[:, :, j, i] = self.head(xg[i], yg[j], t, layers)
-        else:
-
-            def compute(ij):
-                i, j = ij
-                return i, j, self.head(xg[i], yg[j], t, layers)
-
-            results = thread_map(
-                compute,
-                [(i, j) for j in range(ny) for i in range(nx)],
-                total=nx * ny,
-                desc="headgrid",
-                disable=not show_progress,
-                tqdm_class=tqdm,
-            )
-
-            for i, j, result in results:
-                h[:, :, j, i] = result
-        return h
+        x, y = np.meshgrid(xg, yg)
+        h = self.head_array(
+            x.ravel(),
+            y.ravel(),
+            t,
+            layers=layers,
+            show_progress=show_progress,
+            parallel=parallel,
+        )
+        return h.reshape((h.shape[0], h.shape[1], ny, nx))
 
     def headgrid2(
         self,

@@ -259,6 +259,61 @@ class Model:
         else:
             return rv[layers]
 
+    def head_array(self, x, y, layers=None, show_progress=False, parallel=False):
+        """Head for array of points.
+
+        Parameters
+        ----------
+        x : 1D array or list
+            x values of points
+        y : 1D array or list
+            y values of points
+        layers : integer, list or array, optional
+            layers for which grid is returned
+        show_progress : bool
+            show computation progress, by printing dots per row or with tqdm progressbar
+            when parallel is True. Default is False.
+        parallel : bool, optional
+            if `True`, computes head_array in parallel using multi threading,
+            by default `False`
+
+        Returns
+        -------
+        h : array size `nlayers, ntimes, npoints`
+        """
+        parallel, thread_map, tqdm = check_tqdm_parallel(parallel)
+        x = np.atleast_1d(x)
+        y = np.atleast_1d(y)
+        npts = len(x)
+        assert npts == len(y), "x and y must have the same length"
+        if layers is None:
+            nlayers = self.aq.find_aquifer_data(x[0], y[0]).naq
+        else:
+            nlayers = len(np.atleast_1d(layers))
+        h = np.empty((nlayers, npts))
+        if not parallel:
+            for i in range(npts):
+                if show_progress:
+                    print(".", end="", flush=True)
+                h[:, i] = self.head(x[i], y[i], layers)
+        else:
+
+            def compute(i):
+                return i, self.head(x[i], y[i], layers)
+
+            results = thread_map(
+                compute,
+                [(i,) for i in range(npts)],
+                total=npts,
+                desc="headgrid",
+                disable=not show_progress,
+                tqdm_class=tqdm,
+            )
+
+            for i, result in results:
+                h[:, i] = result
+        return h
+
     def headgrid(
         self, xg, yg, layers=None, printrow=False, show_progress=False, parallel=False
     ):
@@ -298,43 +353,15 @@ class Model:
                 stacklevel=2,
             )
             show_progress = printrow
-
-        parallel, thread_map, tqdm = check_tqdm_parallel(parallel)
-
-        xg = np.atleast_1d(xg)
-        yg = np.atleast_1d(yg)
-        nx, ny = len(xg), len(yg)
-        if layers is None:
-            Nlayers = self.aq.find_aquifer_data(xg[0], yg[0]).naq
-        else:
-            Nlayers = len(np.atleast_1d(layers))
-        h = np.empty((Nlayers, ny, nx))
-        if not parallel:
-            for j in range(ny):
-                if show_progress:
-                    print(".", end="", flush=True)
-                for i in range(nx):
-                    h[:, j, i] = self.head(xg[i], yg[j], layers)
-            if show_progress:
-                print("", flush=True)
-        else:
-
-            def compute(ij):
-                i, j = ij
-                return i, j, self.head(xg[i], yg[j], layers)
-
-            results = thread_map(
-                compute,
-                [(i, j) for j in range(ny) for i in range(nx)],
-                total=nx * ny,
-                desc="headgrid",
-                disable=not show_progress,
-                tqdm_class=tqdm,
-            )
-            for i, j, result in results:
-                h[:, j, i] = result
-
-        return h
+        x, y = np.meshgrid(xg, yg)
+        h = self.head_array(
+            x.ravel(),
+            y.ravel(),
+            layers=layers,
+            show_progress=show_progress,
+            parallel=parallel,
+        )
+        return h.reshape((h.shape[0], len(yg), len(xg)))
 
     def headgrid2(
         self,
