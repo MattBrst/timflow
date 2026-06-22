@@ -54,7 +54,7 @@ class Model:
         'l' leaky layer
     """
 
-    def __init__(self, kaq, c, z, npor, ltype, model3d=False):
+    def __init__(self, kaq, z, c, npor, ltype, model3d=False):
         # All input variables are numpy arrays
         # That should be checked outside this function
         self.elementlist = []
@@ -910,7 +910,7 @@ class Model:
 
 
 class ModelMaq(Model):
-    """Create a model by specifying a mult-aquifer sequence of aquifer-leaky layer.
+    """Create a model by specifying a multi-aquifer sequence of aquifer-leaky layer.
 
     Parameters
     ----------
@@ -954,7 +954,7 @@ class ModelMaq(Model):
             z = [1, 0]
         self.storeinput(inspect.currentframe())
         kaq, c, npor, ltype = param_maq(kaq, z, c, npor, topboundary)
-        super().__init__(kaq, c, z, npor, ltype)
+        super().__init__(kaq=kaq, z=z, c=c, npor=npor, ltype=ltype)
         self.name = "ModelMaq"
         if self.aq.ltype[0] == "l":
             ConstantStar(self, hstar, aq=self.aq)
@@ -1038,7 +1038,7 @@ class Model3D(Model):
         if topboundary == "semi":
             z = np.hstack((z[0] + topthick, z))
         model3d = True
-        super().__init__(kaq, c, z, npor, ltype, model3d)
+        super().__init__(kaq=kaq, z=z, c=c, npor=npor, ltype=ltype, model3d=model3d)
         self.aq.kzoverkh = kzoverkh  # add kzoverkh to aquifer object
         self.name = "Model3D"
         if self.aq.ltype[0] == "l":
