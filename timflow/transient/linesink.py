@@ -222,6 +222,7 @@ class LineSink(LineSinkBase):
         label=None,
         addtomodel=True,
     ):
+        """Initialize a transient line-sink with a specified discharge."""
         self.storeinput(inspect.currentframe())
         super().__init__(
             model,
@@ -323,6 +324,7 @@ class River(LineSinkBase, HeadEquation):
         label=None,
         addtomodel=True,
     ):
+        """Initialize a transient head-specified line-sink."""
         self.storeinput(inspect.currentframe())
         if tsandh == "fixed":
             tsandh = [(0, 0)]
@@ -365,6 +367,7 @@ class LineSinkStringBase(Element):
         name="LineSinkStringBase",
         label=None,
     ):
+        """Base class for line-sink strings."""
         super().__init__(
             model,
             nparam=1,
@@ -378,7 +381,7 @@ class LineSinkStringBase(Element):
         self.lslist = []
 
     def __repr__(self):
-        return self.name + " with nodes " + str(zip(self.x, self.y, strict=False))
+        return self.name + f" with {self.nls} segments"
 
     def initialize(self):
         self.ncp = self.nls
@@ -561,6 +564,7 @@ class RiverString(LineSinkStringBase, HeadEquation):
         layers=0,
         label=None,
     ):
+        """Initialize a transient string of head-specified line-sinks."""
         if tsandh == "fixed":
             tsandh = [(0, 0)]
             etype = "z"
@@ -629,6 +633,7 @@ class MscreenLineSink(LineSinkBase, MscreenEquation):
         label=None,
         addtomodel=True,
     ):
+        """Initialize a transient multi-screen line-sink."""
         # assert len(layers) > 1, "number of layers must be at least 2"
         self.storeinput(inspect.currentframe())
         super().__init__(
@@ -719,6 +724,7 @@ class DitchString(LineSinkStringBase, MscreenDitchEquation):
         Astorage=None,
         label=None,
     ):
+        """Initialize a transient ditch string with specified discharge."""
         self.storeinput(inspect.currentframe())
         super().__init__(
             model,
@@ -1064,6 +1070,7 @@ class LineSinkHo(LineSinkHoBase):
         label=None,
         addtomodel=True,
     ):
+        """Initialize a transient higher-order discharge line-sink."""
         self.storeinput(inspect.currentframe())
         super().__init__(
             model,
@@ -1102,6 +1109,7 @@ class RiverHo(LineSinkHoBase, HeadEquationNores):
         label=None,
         addtomodel=True,
     ):
+        """Initialize a transient higher-order head-specified line-sink."""
         self.storeinput(inspect.currentframe())
         if tsandh == "fixed":
             tsandh = [(0, 0)]

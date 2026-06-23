@@ -326,6 +326,7 @@ class Well(WellBase, WellBoreStorageEquation):
         wbstype="pumping",
         label=None,
     ):
+        """Initialize a transient well with a specified discharge."""
         self.storeinput(inspect.currentframe())
         super().__init__(
             model,
@@ -404,6 +405,7 @@ class HeadWell(WellBase, HeadEquation):
     def __init__(
         self, model, xw=0, yw=0, rw=0.1, tsandh=[(0, 1)], res=0, layers=0, label=None
     ):
+        """Initialize a transient well with a specified head."""
         self.storeinput(inspect.currentframe())
         super().__init__(
             model,
@@ -695,6 +697,7 @@ class WellString(WellStringBase):
         rc=None,
         label=None,
     ):
+        """Initialize a transient string of wells with a specified discharge."""
         self.storeinput(inspect.currentframe())
         super().__init__(
             model,
