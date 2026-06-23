@@ -169,6 +169,7 @@ class LineSink1D(LineSink1DBase, MscreenWellEquation):
     """
 
     def __init__(self, model, xls=0, sigls=1, layers=0, label=None):
+        """Initialize a steady 1D line-sink with specified discharge per length."""
         LineSink1DBase.__init__(
             self,
             model,
@@ -224,6 +225,7 @@ class River1D(LineSink1DBase, HeadEquation):
     """
 
     def __init__(self, model, xls=0, hls=1, res=0, wh=1, layers=0, label=None):
+        """Initialize a steady 1D line-sink with a specified head."""
         LineSink1DBase.__init__(
             self,
             model,
