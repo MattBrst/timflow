@@ -7,7 +7,6 @@ Example::
     River(ml, x1=-10, y1=0, x2=10, y2=0, hls=5, layers=0)
 """
 
-import inspect  # Used for storing the input
 import warnings
 
 import matplotlib.pyplot as plt
@@ -286,7 +285,6 @@ class HeadLineSinkZero(LineSinkBase, HeadEquation):
         label=None,
         addtomodel=True,
     ):
-        self.storeinput(inspect.currentframe())
         LineSinkBase.__init__(
             self,
             model,
@@ -565,7 +563,6 @@ class River(LineSinkHoBase, HeadEquation):
         name="River",
         addtomodel=True,
     ):
-        self.storeinput(inspect.currentframe())
         LineSinkHoBase.__init__(
             self,
             model,
@@ -670,7 +667,6 @@ class Ditch(River):
         label=None,
         addtomodel=True,
     ):
-        self.storeinput(inspect.currentframe())
         River.__init__(
             self,
             model,
@@ -930,7 +926,6 @@ class RiverString(LineSinkStringBase2):
     ):
         if xy is None:
             xy = [(-1, 0), (1, 0)]
-        self.storeinput(inspect.currentframe())
         LineSinkStringBase2.__init__(
             self,
             model,
@@ -1082,7 +1077,6 @@ class DitchString(RiverString):
     ):
         if xy is None:
             xy = [(-1, 0), (1, 0)]
-        self.storeinput(inspect.currentframe())
         RiverString.__init__(
             self,
             model,

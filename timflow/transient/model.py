@@ -10,7 +10,7 @@ Example::
     ml.solve()
 """
 
-import inspect  # Used for storing the input
+import multiprocessing as mp
 from warnings import warn
 
 import numpy as np
@@ -80,8 +80,7 @@ class Model:
             model3d,
         )
         self.compute_laplace_parameters()
-        self.name = "TimModel"
-        self.modelname = "ml"  # Used for writing out input
+        self.name = "Model"
         self.model_type = "transient"  # Model type for plotting and other purposes
         self.steady = steady
         if self.steady is not None:
@@ -914,35 +913,6 @@ class Model:
             return sol
         return
 
-    def storeinput(self, frame):
-        self.inputargs, _, _, self.inputvalues = inspect.getargvalues(frame)
-
-    def write(self):
-        rv = self.modelname + " = " + self.name + "(\n"
-        for key in self.inputargs[1:]:  # The first argument (self) is ignored
-            if isinstance(self.inputvalues[key], np.ndarray):
-                rv += (
-                    key
-                    + " = "
-                    + np.array2string(self.inputvalues[key], separator=",")
-                    + ",\n"
-                )
-            elif isinstance(self.inputvalues[key], str):
-                rv += key + " = '" + self.inputvalues[key] + "',\n"
-            else:
-                rv += key + " = " + str(self.inputvalues[key]) + ",\n"
-        rv += ")\n"
-        return rv
-
-    def writemodel(self, fname):
-        self.initialize()  # So that model can be written without solving first
-        f = open(fname, "w")
-        f.write("from timflow.transient import *\n")
-        f.write(self.write())
-        for e in self.elementlist:
-            f.write(e.write())
-        f.close()
-
     def aquifer_summary(self):
         """Return DataFrame with summary of aquifer(s) parameters in model.
 
@@ -1036,7 +1006,6 @@ class ModelMaq(Model):
         M=10,
         steady=None,
     ):
-        self.storeinput(inspect.currentframe())
         if phreatictop is None:
             phreatictop = False
             if topboundary[:3] == "phr":
@@ -1152,7 +1121,6 @@ class Model3D(Model):
         steady=None,
     ):
         """Z must have the length of the number of layers + 1."""
-        self.storeinput(inspect.currentframe())
         if phreatictop is None:
             phreatictop = False
             if topboundary[:3] == "phr":
@@ -1252,8 +1220,7 @@ class ModelXsection(Model):
         self.M = M
         self.aq = SimpleAquifer(naq)
         self.compute_laplace_parameters()
-        self.name = "TimModel"
-        self.modelname = "ml"  # Used for writing out input
+        self.name = "ModelXsection"
         self.steady = steady
         if self.steady is not None:
             self.steady.solve()

@@ -8,7 +8,6 @@ Example::
     River(ml, x1=-10, y1=0, x2=10, y2=0, tsandbc=[(0, 5)], layers=0)
 """
 
-import inspect  # Used for storing the input
 import warnings
 
 import matplotlib.pyplot as plt
@@ -222,7 +221,6 @@ class LineSink(LineSinkBase):
         label=None,
         addtomodel=True,
     ):
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             x1=x1,
@@ -244,7 +242,6 @@ class LineSink(LineSinkBase):
 #'''HeadLineSink that remains zero and constant through time'''
 # def __init__(self, model, x1=-1, y1=0, x2=1, y2=0, res=0.0, wh='H', \
 #             layers=0, label=None, addtomodel=True):
-#    self.storeinput(inspect.currentframe())
 #    LineSinkBase.__init__(self, model, x1=x1, y1=y1, x2=x2, y2=y2, \
 #                          tsandbc=[(0, 0)], res=res, wh=wh, layers=layers,\
 #                          type='z', name='ZeroHeadLineSink', label=label, \
@@ -323,7 +320,6 @@ class River(LineSinkBase, HeadEquation):
         label=None,
         addtomodel=True,
     ):
-        self.storeinput(inspect.currentframe())
         if tsandh == "fixed":
             tsandh = [(0, 0)]
             etype = "z"
@@ -630,7 +626,6 @@ class MscreenLineSink(LineSinkBase, MscreenEquation):
         addtomodel=True,
     ):
         # assert len(layers) > 1, "number of layers must be at least 2"
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             x1=x1,
@@ -719,7 +714,6 @@ class DitchString(LineSinkStringBase, MscreenDitchEquation):
         Astorage=None,
         label=None,
     ):
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             tsandbc=tsandQ,
@@ -814,7 +808,6 @@ class DitchString2(LineSinkStringBase, MscreenDitchEquation):
         Astorage=None,
         label=None,
     ):
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             tsandbc=tsandQ,
@@ -1064,7 +1057,6 @@ class LineSinkHo(LineSinkHoBase):
         label=None,
         addtomodel=True,
     ):
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             x1=x1,
@@ -1102,7 +1094,6 @@ class RiverHo(LineSinkHoBase, HeadEquationNores):
         label=None,
         addtomodel=True,
     ):
-        self.storeinput(inspect.currentframe())
         if tsandh == "fixed":
             tsandh = [(0, 0)]
             etype = "z"

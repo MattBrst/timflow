@@ -10,7 +10,6 @@ Example::
     ml.solve()
 """
 
-import inspect  # Used for storing the input
 import multiprocessing as mp
 import warnings
 
@@ -60,7 +59,6 @@ class Model:
         self.elementlist = []
         self.elementdict = {}  # only elements that have a label
         self.aq = Aquifer(self, kaq, c, z, npor, ltype, model3d=model3d)
-        self.modelname = "ml"  # Used for writing out input
         self.name = "Model"
         self.model_type = "steady"  # Model type for plotting and other purposes
 
@@ -83,9 +81,6 @@ class Model:
         if e.label is not None:
             self.elementdict.pop(e.label)
         self.elementlist.remove(e)
-
-    def storeinput(self, frame):
-        self.inputargs, _, _, self.inputvalues = inspect.getargvalues(frame)
 
     def potential(self, x, y, aq=None):
         if aq is None:
@@ -819,32 +814,6 @@ class Model:
             return sol
         return
 
-    def write(self):
-        rv = self.modelname + " = " + self.name + "(\n"
-        for key in self.inputargs[1:]:  # The first argument (self) is ignored
-            if isinstance(self.inputvalues[key], np.ndarray):
-                rv += (
-                    key
-                    + " = "
-                    + np.array2string(self.inputvalues[key], separator=",")
-                    + ",\n"
-                )
-            elif isinstance(self.inputvalues[key], str):
-                rv += key + " = '" + self.inputvalues[key] + "',\n"
-            else:
-                rv += key + " = " + str(self.inputvalues[key]) + ",\n"
-        rv += ")\n"
-        return rv
-
-    def writemodel(self, fname):
-        self.initialize()  # So that the model can be written without solving first
-        f = open(fname, "w")
-        f.write("from timflow.steady import *\n")
-        f.write(self.write())
-        for e in self.elementlist:
-            f.write(e.write())
-        f.close()
-
     def aquifer_summary(self):
         """Return DataFrame with summary of aquifer(s) parameters in model.
 
@@ -952,7 +921,6 @@ class ModelMaq(Model):
             c = []
         if z is None:
             z = [1, 0]
-        self.storeinput(inspect.currentframe())
         kaq, c, npor, ltype = param_maq(kaq, z, c, npor, topboundary)
         super().__init__(kaq=kaq, z=z, c=c, npor=npor, ltype=ltype)
         self.name = "ModelMaq"
@@ -1031,7 +999,6 @@ class Model3D(Model):
         """
         if z is None:
             z = [1, 0]
-        self.storeinput(inspect.currentframe())
         kaq, kzoverkh, c, npor, ltype = param_3d(
             kaq, z, kzoverkh, npor, topboundary, topres
         )
@@ -1068,7 +1035,6 @@ class ModelXsection(Model):
         self.elementlist = []
         self.elementdict = {}  # only elements that have a label
         self.aq = SimpleAquifer(naq)
-        self.modelname = "ml"  # Used for writing out input
 
         self.plots = PlotSteady(self)
         self.name = "ModelXsection"
