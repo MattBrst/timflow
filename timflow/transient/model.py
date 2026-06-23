@@ -27,6 +27,22 @@ from timflow.transient.plots import PlotTransient
 from timflow.version import check_tqdm_parallel
 
 
+def _compute_head_mp(args):
+    """Helper function for parallel computation of head_array."""
+    model, xi, yi, t, layers, i = args
+    return i, model.head(xi, yi, t, layers)
+
+
+def _compute_velocity_mp(args):
+    """Helper function for parallel computation of velocity_array."""
+    model, xi, yi, zi, t, i = args
+    try:
+        vv = model.velocomp(xi, yi, zi, t)
+    except (ZeroDivisionError, ValueError):
+        vv = np.full((3,), np.nan)
+    return i, vv
+
+
 class Model:
     def __init__(
         self,
@@ -445,6 +461,69 @@ class Model:
 
         return velo
 
+    def velocity_array(self, x, y, z, t, show_progress=True, parallel=False):
+        """Compute velocity for an array of points.
+
+        Parameters
+        ----------
+        x : 1d-array
+            x values
+        y : 1d-array
+            y values
+        z : 1d-array
+            z values
+        t : float
+            time at which velocity computed
+        show_progress : bool, optional
+            if `True`, shows progress bar when computing velocity grid, by default `True`
+        parallel : bool or int, optional
+            if `True`, computes velocity grid in parallel using multiprocessing,
+            by default `False`. If an integer is provided, it specifies the number of
+            processes to use.
+
+        Returns
+        -------
+        velocity : array
+            velocity vector (vx, vy, vz) at each point in grid,
+            size (3, len(x))
+        """
+        parallel, thread_map, tqdm = check_tqdm_parallel(parallel)
+
+        x = np.atleast_1d(x)
+        y = np.atleast_1d(y)
+        z = np.atleast_1d(z)
+        npts = len(x)
+        v = np.empty((3, npts))
+        if not parallel:
+            for i in (
+                tqdm(range(npts), desc="velocity array", disable=not show_progress)
+                if tqdm
+                else range(npts)
+            ):
+                try:
+                    vv = self.velocomp(x[i], y[i], z[i], t)
+                except ZeroDivisionError:
+                    vv = np.full((3,), np.nan)
+                v[:, i] = vv
+        else:
+            nproc = mp.cpu_count() if parallel is True else int(parallel)
+            chunksize = max(1, npts // (4 * nproc)) if nproc > 0 else 1
+            tasks = [(self, x[i], y[i], z[i], t, i) for i in range(npts)]
+            results = thread_map(
+                _compute_velocity_mp,
+                tasks,
+                total=npts,
+                desc="velocity array",
+                disable=not show_progress,
+                tqdm_class=tqdm,
+                max_workers=nproc,
+                chunksize=chunksize,
+            )
+            for i, result in results:
+                v[:, i] = result
+
+        return v
+
     def velocity_grid(self, xg, yg, zg, t, show_progress=True, parallel=False):
         """Compute velocity grid.
 
@@ -460,57 +539,30 @@ class Model:
             time for which grid is returned
         show_progress : bool, optional
             if `True`, shows progress bar when computing velocity grid, by default `True`
-        parallel : bool, optional
-            if `True`, computes velocity grid in parallel using multi threading,
-            by default `False`
+        parallel : bool or int, optional
+            if `True`, computes velocity grid in parallel using multiprocessing,
+            by default `False`. If an integer is provided, it specifies the number of
+            processes to use.
 
         Returns
         -------
         velocity : array
-            velocity vector (vz, vy, vx) at each point in grid,
+            velocity vector (vx, vy, vz) at each point in grid,
             size (3, len(z), len(y), len(x))
         """
-        parallel, thread_map, tqdm = check_tqdm_parallel(parallel)
-
-        def compute(kij):
-            k, i, j = kij
-            try:
-                vv = self.velocomp(xg[j], yg[i], zg[k], t)
-            except ZeroDivisionError:
-                vv = np.full((3,), np.nan)
-            return k, i, j, vv
-
         xg = np.atleast_1d(xg)
         yg = np.atleast_1d(yg)
         zg = np.atleast_1d(zg)
-        nz, ny, nx = len(zg), len(yg), len(xg)
-        v = np.empty((3, nz, ny, nx))
-        if not parallel:
-            for k in range(nz):
-                if show_progress:
-                    print(".", end="", flush=True)
-                for i in range(ny):
-                    for j in range(nx):
-                        try:
-                            vv = self.velocomp(xg[j], yg[i], zg[k], t)
-                        except ZeroDivisionError:
-                            vv = np.full((3,), np.nan)
-                        v[:, k, i, j] = vv
-            if show_progress:
-                print("", flush=True)
-        else:
-            results = thread_map(
-                compute,
-                [(k, i, j) for k in range(nz) for i in range(ny) for j in range(nx)],
-                total=nz * nx * ny,
-                desc="velocity grid",
-                disable=not show_progress,
-                tqdm_class=tqdm,
-            )
-            for k, i, j, result in results:
-                v[:, k, i, j] = result
-
-        return v
+        x, y, z = np.meshgrid(xg, yg, zg)
+        v = self.velocity_array(
+            x.ravel(),
+            y.ravel(),
+            z.ravel(),
+            t,
+            show_progress=show_progress,
+            parallel=parallel,
+        )
+        return v.reshape((3, len(yg), len(xg), len(zg))).transpose((0, 3, 1, 2))
 
     def velo_one(self, x, y, z, t, aq=None, layer_ltype=[0, 0]):
         # implemented for one layer and one time
@@ -606,15 +658,16 @@ class Model:
         show_progress : bool
             show computation progress, by printing dots per row or with tqdm progressbar
             when parallel is True. Default is False.
-        parallel : bool, optional
-            if `True`, computes head_array in parallel using multi threading,
-            by default `False`
+        parallel : bool or int, optional
+            if `True`, computes head_array in parallel using multiprocessing,
+            by default `False`. If an integer is provided, it specifies the number of
+            processes to use.
 
         Returns
         -------
         h : array size `nlayers, ntimes, npoints`
         """
-        parallel, thread_map, tqdm = check_tqdm_parallel(parallel)
+        parallel, process_map, tqdm = check_tqdm_parallel(parallel)
         x = np.atleast_1d(x)
         y = np.atleast_1d(y)
         t = np.atleast_1d(t)
@@ -627,22 +680,25 @@ class Model:
             nlayers = len(np.atleast_1d(layers))
         h = np.empty((nlayers, ntimes, npts))
         if not parallel:
-            for i in range(npts):
-                if show_progress:
-                    print(".", end="", flush=True)
+            for i in (
+                tqdm(range(npts), disable=not show_progress, desc="head array")
+                if tqdm
+                else range(npts)
+            ):
                 h[:, :, i] = self.head(x[i], y[i], t, layers)
         else:
-
-            def compute(i):
-                return i, self.head(x[i], y[i], t, layers)
-
-            results = thread_map(
-                compute,
-                range(npts),
+            nproc = mp.cpu_count() if parallel is True else int(parallel)
+            chunksize = max(1, npts // (4 * nproc)) if nproc > 0 else 1
+            tasks = [(self, x[i], y[i], t, layers, i) for i in range(npts)]
+            results = process_map(
+                _compute_head_mp,
+                tasks,
                 total=npts,
-                desc="headgrid",
+                desc="head array",
                 disable=not show_progress,
                 tqdm_class=tqdm,
+                max_workers=nproc,
+                chunksize=chunksize,
             )
 
             for i, result in results:
@@ -658,7 +714,6 @@ class Model:
         printrow=False,
         show_progress=False,
         parallel=False,
-        grid_type="structured",
     ):
         """Grid of heads.
 
@@ -675,9 +730,10 @@ class Model:
         show_progress : bool
             show computation progress, by printing dots per row or with tqdm progressbar
             when parallel is True. Default is False.
-        parallel : bool, optional
+        parallel : bool or int, optional
             if `True`, computes headgrid in parallel using multithreading,
-            by default `False`
+            by default `False`. If an integer is provided, it specifies the number of
+            processes to use.
         printrow : bool, optional
 
             .. deprecated:: 0.2.0
@@ -741,9 +797,10 @@ class Model:
         show_progress : bool
             show computation progress, by printing dots per row or with tqdm progressbar
             when parallel is True. Default is False.
-        parallel : bool, optional
-            if `True`, computes headgrid in parallel using multi threading,
-            by default `False`
+        parallel : bool or int, optional
+            if `True`, computes headgrid in parallel using multiprocessing,
+            by default `False`. If an integer is provided, it specifies the number of
+            processes to use.
         printrow : boolean, optional
 
             .. deprecated:: 0.2.0
@@ -794,7 +851,7 @@ class Model:
             show computation progress, by printing dots per row or with tqdm progressbar
             when parallel is True. Default is True.
         parallel : bool, optional
-            if `True`, computes discharge vector grid in parallel using multi threading,
+            if `True`, computes discharge vector grid in parallel using multiprocessing,
             by default `False`
 
         Returns
