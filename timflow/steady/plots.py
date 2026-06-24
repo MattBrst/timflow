@@ -98,9 +98,10 @@ class PlotSteady(PlotBase):
             if list of strings: use strings as names in legend
         return_contours : bool, optional
             if True, return list of contour sets for each contoured layer
-        parallel : bool, optional
-            if True, compute headgrid in parallel using multiple threads,
-            default is False
+        parallel : bool or int, optional
+            if True, compute head grid in parallel using multiprocessing,
+            default is False. If int is provided, it is interpreted as the number of
+            processes to use.
         **kwargs
             additional keyword arguments passed to ax.contour()
 
@@ -783,7 +784,7 @@ class PlotSteady(PlotBase):
         figsize : tuple of 2 values
             size of figure
         parallel : bool
-            if True, compute velocity grid in parallel using multiple threads,
+            if True, compute velocity grid in parallel using multiprocessing,
             default is False
         **kwargs
             additional keyword arguments passed to ax.quiver()
@@ -819,7 +820,7 @@ class PlotSteady(PlotBase):
         figsize : tuple of 2 values
             size of figure
         parallel : bool
-            if True, compute velocity grid in parallel using multiple threads,
+            if True, compute velocity grid in parallel using multiprocessing,
             default is False
         **kwargs
             additional keyword arguments passed to ax.quiver()

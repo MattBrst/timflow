@@ -8,7 +8,6 @@ Example::
     Well(ml, xw=100, yw=200, Qw=1000, layers=[0])
 """
 
-import inspect  # Used for storing the input
 import warnings
 
 import matplotlib.pyplot as plt
@@ -405,7 +404,6 @@ class Well(WellBase):
         yc=None,
     ):
         """Initialize a steady well with a specified discharge."""
-        self.storeinput(inspect.currentframe())
         WellBase.__init__(
             self,
             model,
@@ -502,7 +500,6 @@ class HeadWell(WellBase, HeadEquation):
         addtomodel=True,
     ):
         """Initialize a steady well with a specified head."""
-        self.storeinput(inspect.currentframe())
         WellBase.__init__(
             self,
             model,
@@ -584,7 +581,6 @@ class TargetHeadWell(WellBase):
         addtomodel=True,
     ):
         """Initialize a steady well with a target head at a control point."""
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             xw,
@@ -687,7 +683,6 @@ class LargeDiameterWell(WellBase, MscreenWellNoflowEquation):
         xc=None,
         yc=None,
     ):
-        self.storeinput(inspect.currentframe())
         WellBase.__init__(
             self,
             model,

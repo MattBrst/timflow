@@ -10,7 +10,6 @@ Example::
 
 """
 
-import inspect  # user for storing the input
 import warnings
 
 import matplotlib.pyplot as plt
@@ -354,7 +353,6 @@ class XsectionMaq(Xsection):
             c = []
         if z is None:
             z = [1, 0]
-        self.storeinput(inspect.currentframe())
         (
             kaq,
             c,
@@ -433,7 +431,6 @@ class Xsection3D(Xsection):
     ):
         if z is None:
             z = [1, 0]
-        self.storeinput(inspect.currentframe())
         (
             kaq,
             kzoverkh,

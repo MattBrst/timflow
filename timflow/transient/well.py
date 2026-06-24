@@ -8,8 +8,6 @@ Example::
     Well(ml, xw=100, yw=200, tsandbc=[(0, 1000)], layers=[0])
 """
 
-import inspect  # Used for storing the input
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -258,7 +256,6 @@ class DischargeWell(WellBase):
     def __init__(
         self, model, xw=0, yw=0, tsandQ=[(0, 1)], rw=0.1, res=0, layers=0, label=None
     ):
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             xw,
@@ -327,7 +324,6 @@ class Well(WellBase, WellBoreStorageEquation):
         label=None,
     ):
         """Initialize a transient well with a specified discharge."""
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             xw,
@@ -406,7 +402,6 @@ class HeadWell(WellBase, HeadEquation):
         self, model, xw=0, yw=0, rw=0.1, tsandh=[(0, 1)], res=0, layers=0, label=None
     ):
         """Initialize a transient well with a specified head."""
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             xw,
@@ -443,7 +438,6 @@ class WellTest(WellBase):
         label=None,
         fp=None,
     ):
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             xw,
@@ -698,7 +692,6 @@ class WellString(WellStringBase):
         label=None,
     ):
         """Initialize a transient string of wells with a specified discharge."""
-        self.storeinput(inspect.currentframe())
         super().__init__(
             model,
             xy,
