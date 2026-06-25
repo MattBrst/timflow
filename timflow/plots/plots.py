@@ -120,8 +120,9 @@ class PlotBase:
         units : dict, optional
             dictionary with units keyed by timflow parameter names,
             e.g. {'kaq': 'm/d', 'c': 'd', 'Saq': 'm$^{-1}$', 'Sll': 'm$^{-1}$'}
-        layer_names : tuple or dict
-            names for aquifers and leaky layers, default is ('aquifer', 'leaky layer').
+        layer_names : 2-tuple or dict
+            words to use for aquifers and leaky layers, default is 
+            ('aquifer', 'leaky layer').
             If a dict is provided, it maps layer type and number to a name,
             e.g. {'aquifer 0': 'top aquifer', 'leaky layer 1': 'clay layer'}
         horizontal_axis : str
@@ -395,8 +396,9 @@ class PlotBase:
         units : dict or None
             Dictionary of units keyed by timflow parameter names
             e.g. {'kaq': 'm/d', 'c': 'd', 'Saq': 'm$^{-1}$', 'Sll': 'm$^{-1}$'}.
-        layer_names : tuple or dict
-            names for aquifers and leaky layers, default is ('aquifer', 'leaky layer').
+        layer_names : 2-tuple or dict
+            words to use for aquifers and leaky layers, default is 
+            ('aquifer', 'leaky layer').
             If a dict is provided, it maps layer type and number to a name,
             e.g. {'aquifer 0': 'top aquifer', 'leaky layer 1': 'clay layer'
         sep : str, optional
@@ -510,8 +512,9 @@ class PlotBase:
             Whether to add parameter values
         fmt : str
             Format string for parameter values
-        layer_names : tuple or dict
-            names for aquifer and leaky layer, default is ('aquifer', 'leaky layer').
+        layer_names : 2-tuple or dict
+            words to use for aquifer and leaky layer, default is 
+            ('aquifer', 'leaky layer').
             If a dict is provided, it maps layer type and number to a name,
             e.g. {'aquifer 0': 'top aquifer', 'leaky layer 1': 'clay layer'}
         units : dict or None
