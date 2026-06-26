@@ -81,14 +81,15 @@ class PlotBase:
     def xsection(
         self,
         xy: Optional[list[tuple[float]]] = None,
-        labels=True,
-        params=False,
-        names=False,
+        labels: bool = True,
+        params: bool = False,
+        names: bool = False,
         ax=None,
-        fmt=None,
-        units=None,
-        hstar=None,
-        boundaries=True,
+        fmt: str | None = None,
+        units: dict | None = None,
+        layer_names: tuple | dict = ("aquifer", "leaky layer"),
+        hstar: float | None = None,
+        boundaries: bool = True,
         horizontal_axis: Literal["x", "y", "s"] = "s",
         sep: Literal[", ", "\n"] = ", ",
         ha: str = "center",
@@ -119,6 +120,11 @@ class PlotBase:
         units : dict, optional
             dictionary with units keyed by timflow parameter names,
             e.g. {'kaq': 'm/d', 'c': 'd', 'Saq': 'm$^{-1}$', 'Sll': 'm$^{-1}$'}
+        layer_names : 2-tuple or dict
+            words to use for aquifers and leaky layers, default is
+            ('aquifer', 'leaky layer').
+            If a dict is provided, it maps layer type and number to a name,
+            e.g. {'aquifer 0': 'top aquifer', 'leaky layer 1': 'clay layer'}
         horizontal_axis : str
             's' for distance along cross-section on x-axis (default)
             'x' for using x-coordinates on x-axis
@@ -158,6 +164,7 @@ class PlotBase:
                 ax=ax,
                 fmt=fmt,
                 units=units,
+                layer_names=layer_names,
                 hstar=hstar,
                 boundaries=boundaries,
                 sep=sep,
@@ -176,7 +183,19 @@ class PlotBase:
 
         # Plot layers
         self._xection_plot_layers(
-            r0, r, labels, params, fmt, units, lli, aqi, ax, sep=sep, ha=ha, **kwargs
+            r0,
+            r,
+            labels,
+            params,
+            fmt,
+            units,
+            layer_names,
+            lli,
+            aqi,
+            ax,
+            sep=sep,
+            ha=ha,
+            **kwargs,
         )
 
         # Plot aquifer-aquifer boundaries
@@ -279,6 +298,7 @@ class PlotBase:
         ax,
         fmt,
         units=None,
+        layer_names=("aquifer", "leaky layer"),
         hstar=None,
         boundaries=True,
         sep: Literal[", ", "\n"] = ", ",
@@ -323,6 +343,7 @@ class PlotBase:
             x2=x2,
             fmt=fmt,
             units=units,
+            layer_names=layer_names,
             sep=sep,
             ha=ha,
         )
@@ -352,6 +373,7 @@ class PlotBase:
         x2,
         fmt,
         units,
+        layer_names,
         sep: Literal[", ", "\n"] = ", ",
         ha: str = "center",
     ):
@@ -374,11 +396,20 @@ class PlotBase:
         units : dict or None
             Dictionary of units keyed by timflow parameter names
             e.g. {'kaq': 'm/d', 'c': 'd', 'Saq': 'm$^{-1}$', 'Sll': 'm$^{-1}$'}.
+        layer_names : 2-tuple or dict
+            words to use for aquifers and leaky layers, default is
+            ('aquifer', 'leaky layer').
+            If a dict is provided, it maps layer type and number to a name,
+            e.g. {'aquifer 0': 'top aquifer', 'leaky layer 1': 'clay layer'
         sep : str, optional
             Separator between parameters, either ", " or "\n"
         ha : str, optional
             Horizontal alignment for parameter labels. Defaults to "center".
         """
+        if len(self._ml.aq.inhomdict) == 0:
+            raise ValueError(
+                "No inhomogeneities found in ModelXsection, nothing to plot."
+            )
         for inhom in self._ml.aq.inhomdict.values():
             inhom.plot(
                 ax=ax,
@@ -389,6 +420,7 @@ class PlotBase:
                 x2=x2,
                 fmt=fmt,
                 units=units,
+                layer_names=layer_names,
                 sep=sep,
                 ha=ha,
             )
@@ -458,6 +490,7 @@ class PlotBase:
         params,
         fmt,
         units,
+        layer_names,
         lli,
         aqi,
         ax,
@@ -479,6 +512,11 @@ class PlotBase:
             Whether to add parameter values
         fmt : str
             Format string for parameter values
+        layer_names : 2-tuple or dict
+            words to use for aquifer and leaky layer, default is
+            ('aquifer', 'leaky layer').
+            If a dict is provided, it maps layer type and number to a name,
+            e.g. {'aquifer 0': 'top aquifer', 'leaky layer 1': 'clay layer'}
         units : dict or None
             Dictionary of units keyed by timflow parameter names
             e.g. {'kaq': 'm/d', 'c': 'd', 'Saq': 'm$^{-1}$', 'Sll': 'm$^{-1}$'}
@@ -507,10 +545,17 @@ class PlotBase:
                     **kwargs,
                 )
                 if labels:
+                    if isinstance(layer_names, tuple):
+                        llname = f"{layer_names[1]} {lli}"
+                    elif isinstance(layer_names, dict):
+                        llname = f"leaky layer {lli}"
+                        llname = layer_names.get(llname, llname)
+                    else:
+                        llname = f"leaky layer {lli}"
                     ax.text(
                         r0 + 0.5 * r if not params else r0 + 0.25 * r,
                         np.mean(self._ml.aq.z[i : i + 2]),
-                        f"leaky layer {lli}",
+                        llname,
                         ha="center",
                         va="center",
                     )
@@ -524,10 +569,17 @@ class PlotBase:
             # Plot aquifers
             if self._ml.aq.ltype[i] == "a":
                 if labels:
+                    if isinstance(layer_names, tuple):
+                        aqname = f"{layer_names[0]} {aqi}"
+                    elif isinstance(layer_names, dict):
+                        aqname = f"aquifer {aqi}"
+                        aqname = layer_names.get(aqname, aqname)
+                    else:
+                        aqname = f"aquifer {aqi}"
                     ax.text(
                         r0 + 0.5 * r if not params else r0 + 0.25 * r,
                         np.mean(self._ml.aq.z[i : i + 2]),
-                        f"aquifer {aqi}",
+                        aqname,
                         ha="center",
                         va="center",
                         **kwargs,
