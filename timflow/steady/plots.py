@@ -183,7 +183,7 @@ class PlotSteady(PlotBase):
         layers=None,
         sstart=0,
         color=None,
-        lw=1,
+        lw=1.5,
         figsize=None,
         ax=None,
         legend=True,
@@ -224,7 +224,7 @@ class PlotSteady(PlotBase):
             ax.plot(
                 s,
                 head[ilay],
-                label=kwargs.pop("label", f"head (layer={ilay}"),
+                label=kwargs.pop("label", f"head (layer={ilay})"),
                 c=color,
                 lw=lw,
                 **kwargs,
@@ -840,7 +840,7 @@ class PlotSteady(PlotBase):
         # v has shape (3, nz, ny, nx) ordered as (vx, vy, vz)
         v = self._ml.velocity_grid(x, y, np.atleast_1d(z), parallel=parallel)
         U = v[0].squeeze() if len(y) == 1 else v[1].squeeze()
-        V = v[2, 0]  # vz
+        V = v[2].squeeze()  # vz
         return super().quiver_z(
             x, y, z, U, V, normalize=normalize, ax=ax, figsize=figsize, **kwargs
         )

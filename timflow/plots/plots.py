@@ -148,6 +148,12 @@ class PlotBase:
         ax : matplotlib.Axes
             axes with plot
         """
+        # check if model is initialized
+        # if not self._ml.initialized:
+        #     raise ValueError(
+        #         "Model is not initialized. Call `ml.initialize()` or `ml.solve()`"
+        #         " before plotting."
+        #     )
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(8, 4))
 
@@ -330,8 +336,12 @@ class PlotBase:
             (x1, _), (x2, _) = xy
         else:
             dx = x_max - x_min
-            x1 = x_min - 0.25 * dx
-            x2 = x_max + 0.25 * dx
+            if np.isinf(dx) or dx == 0.0:
+                x1 = -np.inf
+                x2 = np.inf
+            else:
+                x1 = x_min - 0.25 * dx
+                x2 = x_max + 0.25 * dx
 
         # Plot inhoms (implementation differs between steady/transient)
         self._xsection_plot_inhoms(
@@ -347,7 +357,8 @@ class PlotBase:
             sep=sep,
             ha=ha,
         )
-        ax.set_xlim(x1, x2)
+        if not np.isinf(x1) and not np.isinf(x2):
+            ax.set_xlim(x1, x2)
         ax.set_ylabel("elevation")
         ax.set_xlabel("x")
 
