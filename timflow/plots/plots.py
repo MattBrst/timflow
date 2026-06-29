@@ -148,6 +148,12 @@ class PlotBase:
         ax : matplotlib.Axes
             axes with plot
         """
+        # check if model is initialized
+        if not self._ml.initialized:
+            raise ValueError(
+                "Model is not initialized. Call `ml.initialize()` or `ml.solve()`"
+                " before plotting."
+            )
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(8, 4))
 

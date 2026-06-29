@@ -108,6 +108,8 @@ class Model:
         # NOTE: reinstate later, after deprecation below is removed?
         # self.xsection = self.plots.xsection
 
+        self.initialized = False
+
     def xsection(self, *args, **kwargs):
         raise DeprecationWarning(
             "This method is deprecated. Use `ml.plots.head_along_line()` instead."
@@ -154,6 +156,7 @@ class Model:
         self.enumber = np.array(enumber)
         self.etstart = np.array(etstart)
         self.ebc = np.array(ebc)
+        self.initialized = True
 
     def addelement(self, e):
         if e.label is not None:
@@ -164,6 +167,7 @@ class Model:
             self.vbclist.append(e)
         elif e.type == "z":
             self.zbclist.append(e)
+        self.initialized = False
 
     def removeelement(self, e):
         if e.label is not None:
@@ -174,6 +178,7 @@ class Model:
             self.vbclist.remove(e)
         elif e.type == "z":
             self.zbclist.remove(e)
+        self.initialized = False
 
     def compute_laplace_parameters(self):
         """Compute the parameters for the Laplace transform inversion.
@@ -1275,7 +1280,7 @@ class ModelXsection(Model):
         self.tmax = tmax
         self.tstart = tstart
         self.M = M
-        self.aq = SimpleAquifer(naq)
+        self.aq = SimpleAquifer(self, naq)
         self.compute_laplace_parameters()
         self.name = "ModelXsection"
         self.steady = steady
@@ -1286,6 +1291,8 @@ class ModelXsection(Model):
         self.plot = self.plots.topview
         self.name = "ModelXsection"
         self.model_type = "transient"
+
+        self.initialized = False
 
     def check_inhoms(self):
         """Check inhoms.
@@ -1365,3 +1372,4 @@ class ModelXsection(Model):
         self.check_inhoms()
         super().initialize()
         self.check_elements()
+        self.initialized = True
