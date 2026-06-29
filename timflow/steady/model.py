@@ -80,23 +80,28 @@ class Model:
 
         self.plots = PlotSteady(self)
 
+        self.initialized = False
+
     def initialize(self):
         # remove inhomogeneity elements (they are added again)
         self.elementlist = [e for e in self.elementlist if not e.inhomelement]
         self.aq.initialize()
         for e in self.elementlist:
             e.initialize()
+        self.initialized = True
 
     def add_element(self, e):
         self.elementlist.append(e)
         if e.label is not None:
             self.elementdict[e.label] = e
+        self.initialized = False
 
     def remove_element(self, e):
         """Remove element `e` from model."""
         if e.label is not None:
             self.elementdict.pop(e.label)
         self.elementlist.remove(e)
+        self.initialized = False
 
     def potential(self, x, y, aq=None):
         if aq is None:
@@ -1094,11 +1099,13 @@ class ModelXsection(Model):
     def __init__(self, naq=1):
         self.elementlist = []
         self.elementdict = {}  # only elements that have a label
-        self.aq = SimpleAquifer(naq)
+        self.aq = SimpleAquifer(self, naq)
 
         self.plots = PlotSteady(self)
         self.name = "ModelXsection"
         self.model_type = "steady"
+
+        self.initialized = False
 
     def check_inhoms(self):
         """Check inhoms.
