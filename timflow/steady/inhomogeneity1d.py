@@ -186,18 +186,29 @@ class Xsection(AquiferData):
             x1 = kwargs.pop("x1")
             if np.isfinite(self.x1):
                 x1 = max(x1, self.x1)
+            else:
+                x1 = self.x2 - 100.0
         elif np.isfinite(self.x1):
             x1 = self.x1
         else:
             x1 = self.x2 - 100.0
+
         if "x2" in kwargs:
             x2 = kwargs.pop("x2")
             if np.isfinite(self.x2):
                 x2 = min(x2, self.x2)
+            else:
+                x2 = self.x1 + 100.0
         elif np.isfinite(self.x2):
             x2 = self.x2
         else:
             x2 = self.x1 + 100.0
+
+        # final trap for infinite domains
+        if np.isinf(x1):
+            x1 = -100.0
+        if np.isinf(x2):
+            x2 = 100.0
 
         if self.x1 > x2 or self.x2 < x1:
             # do nothing, inhom is outside the window
