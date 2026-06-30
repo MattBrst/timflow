@@ -838,7 +838,10 @@ class PlotBase:
         cslist = []
         cshandlelist = []
         for i in range(len(layers)):
-            _colors = c if per_level_colors else c[i]
+            if color is None and cmap is not None:
+                _colors = None
+            else:
+                _colors = c if per_level_colors else c[i]
             iarr = arr[i] if arr.ndim == 3 else arr
             cs = ax.contour(x, y, iarr, levels, colors=_colors, cmap=cmap, **kwargs)
             cslist.append(cs)
