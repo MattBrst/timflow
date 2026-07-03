@@ -2,7 +2,7 @@ import warnings
 from importlib import import_module, metadata
 from platform import python_version
 
-__version__ = "0.5.0.dev0"
+__version__ = "0.4.1"
 
 
 def show_versions(optional=True) -> None:
