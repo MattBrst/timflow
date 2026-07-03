@@ -22,7 +22,7 @@ existing part of the code. `timflow` is coded in Python and uses `numba` to spee
 evaluation of the line elements and inverse Laplace transforms.
 The `transient` submodule is based on the Laplace-transform analytic element
 method. The solution is computed analytically in the Laplace domain and converted back
-to the time domain numerically usig the algorithm of De Hoog, Stokes, and Knight.
+to the time domain numerically using the algorithm of De Hoog, Stokes, and Knight.
 
 ## Installation
 
