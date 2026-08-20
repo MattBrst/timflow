@@ -1,25 +1,20 @@
 from pathlib import Path
 
-import pytest
 import papermill as pm
-
+import pytest
 
 NB_DIR = Path.cwd().parent.parent / "docs/transient"
 
 
 def get_notebooks() -> list[Path]:
-    skip = ["besselaesnew_timing.ipynb"]
-    NB_DIRS = [
+    nb_subdirs = [
         NB_DIR / "00userguide",
         NB_DIR / "02examples",
         NB_DIR / "03xsections",
         NB_DIR / "05benchmarks",
     ]
 
-    nblist = []
-    for nbdir in NB_DIRS:
-        nblist += [nb for nb in nbdir.glob("*.ipynb") if nb.name not in skip]
-    return sorted(nblist)
+    return [nb for nb_dir in nb_subdirs for nb in nb_dir.glob("*.ipynb")]
 
 
 PARAMETERS = {

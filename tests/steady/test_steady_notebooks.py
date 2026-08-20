@@ -1,13 +1,13 @@
 from pathlib import Path
 
-import pytest
 import papermill as pm
+import pytest
 
 NB_DIR = Path.cwd().parent.parent / "docs/steady"
 
 
 def get_notebooks() -> list[Path]:
-    NB_SUBDIRS = [
+    nb_subdirs = [
         NB_DIR / "00userguide/tutorials",
         NB_DIR / "00userguide/howtos",
         NB_DIR / "02examples",
@@ -15,8 +15,7 @@ def get_notebooks() -> list[Path]:
         NB_DIR / "04benchmarks",
     ]
 
-    nblist = [nb for NB_DIR in NB_SUBDIRS for nb in NB_DIR.glob("*.ipynb")]
-    return nblist
+    return sorted([nb for nb_dir in nb_subdirs for nb in nb_dir.glob("*.ipynb")])
 
 
 PARAMETERS = {
@@ -48,7 +47,6 @@ if __name__ == "__main__":
 
     times = {}
     for file in get_notebooks():
-
         start = time()
         print(file)
         # test_notebook(file)
