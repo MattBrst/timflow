@@ -1,39 +1,49 @@
 from pathlib import Path
 
-import nbformat
 import pytest
-from nbconvert.preprocessors import ExecutePreprocessor
+import papermill as pm
 
-# import subprocess
+from time import time
 
-# %%
-nbdirs = [
-    Path("docs/transient/00userguide"),
-    Path("docs/transient/02examples"),
-    Path("docs/transient/03xsections"),
-    Path("docs/transient/05benchmarks"),
-]
+NB_TRANSIENT_DIR = Path.cwd().parent.parent / "docs/transient"
 
-
-def get_notebooks():
+def get_notebooks() -> list[Path]:
     skip = ["besselaesnew_timing.ipynb"]
-    nblist = []
-    for nbdir in nbdirs:
-        nblist += [nb for nb in nbdir.glob("*.ipynb") if nb.name not in skip]
-    return nblist
+    NB_TRANSIENT_DIRS = [
+        NB_TRANSIENT_DIR / "00userguide",
+        NB_TRANSIENT_DIR / "02examples",
+        NB_TRANSIENT_DIR / "03xsections",
+        NB_TRANSIENT_DIR / "05benchmarks",
+    ]
 
+    nblist = []
+    for nbdir in NB_TRANSIENT_DIRS:
+        nblist += [nb for nb in nbdir.glob("*.ipynb") if nb.name not in skip]
+    return sorted(nblist)
+
+PARAMETERS = {
+    "meandering_river.ipynb": {"NGR": 2},
+    "horizontal_well.ipynb": {"N": 2},
+}
 
 # @pytest.mark.notebooks
 @pytest.mark.skip(reason="Use pytest --nbval on notebooks directly for coverage.")
 @pytest.mark.parametrize("pth", get_notebooks())
-def test_notebook_py(pth):
-    pth = Path(pth)
-    with open(pth, "r", encoding="utf-8") as f:
-        nb = nbformat.read(f, as_version=4)
-        ep = ExecutePreprocessor(timeout=600, kernel_name="python3")
-        try:
-            assert ep.preprocess(nb, {"metadata": {"path": pth.parent}}) is not None, (
-                f"Got empty notebook for {pth.name}"
-            )
-        except Exception as e:
-            pytest.fail(reason=f"Failed executing {pth.name}: {e}")
+def test_notebook(pth):
+    input_path = pth
+    output_path = pth.with_suffix(".out.ipynb")
+    pm.execute_notebook(
+        input_path,
+        str(output_path),
+        timeout=600,
+        cwd=pth.parent,
+        parameters = PARAMETERS.get(pth.name)
+    )
+    output_path.unlink()  # Remove the output notebook after execution
+
+if __name__ == "__main__":
+    for file in get_notebooks():
+        start = time()
+        test_notebook(file)
+        end = time()
+        print(f"Execution time for {file}: {end - start:.2f} seconds")

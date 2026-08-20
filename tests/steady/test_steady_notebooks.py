@@ -1,8 +1,7 @@
 from pathlib import Path
 
-import nbformat
 import pytest
-from nbconvert.preprocessors import ExecutePreprocessor
+import papermill as pm
 
 nbdirs = [
     Path("docs/steady/00userguide/tutorials"),
@@ -13,7 +12,7 @@ nbdirs = [
 ]
 
 
-def get_notebooks():
+def get_notebooks() -> list[Path]:
     skip = ["benchmarking_besselaes.ipynb", "vertical_anisotropy.ipynb"]
     nblist = []
     for nbdir in nbdirs:
@@ -24,14 +23,14 @@ def get_notebooks():
 # @pytest.mark.notebooks
 @pytest.mark.skip(reason="Use pytest --nbval on notebooks directly for coverage.")
 @pytest.mark.parametrize("pth", get_notebooks())
-def test_notebook_py(pth):
+def test_notebook(pth) -> None:
     pth = Path(pth)
-    with open(pth, "r", encoding="utf-8") as f:
-        nb = nbformat.read(f, as_version=4)
-        ep = ExecutePreprocessor(timeout=600, kernel_name="python3")
-        try:
-            assert ep.preprocess(nb, {"metadata": {"path": pth.parent}}) is not None, (
-                f"Got empty notebook for {pth.name}"
-            )
-        except Exception as e:
-            pytest.fail(reason=f"Failed executing {pth.name}: {e}")
+    pm.execute_notebook(
+        pth,
+        str(pth.with_suffix(".out.ipynb")),
+        timeout=600,
+    )
+
+if __name__ == "__main__":
+    for file in get_notebooks():
+        test_notebook(file)
