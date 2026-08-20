@@ -22,7 +22,9 @@ def get_notebooks() -> list[Path]:
     return nblist
 
 
-PARAMETERS = {}
+PARAMETERS = {
+    "collector_wells.ipynb": {"NGR": 2},
+}
 
 
 # @pytest.mark.notebooks
