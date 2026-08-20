@@ -24,6 +24,7 @@ def get_notebooks() -> list[Path]:
 
 PARAMETERS = {
     "collector_wells.ipynb": {"NGR": 2},
+    "besselnumba_timing.ipynb": {"N": 1},
 }
 
 
