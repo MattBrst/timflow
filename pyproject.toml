@@ -62,6 +62,7 @@ docs = [
     "myst_nb",
     "sphinxcontrib-bibtex",
     "sphinx-autoapi",
+    "jupyter-cache"
 ]
 dev = ["timflow[docs]"]
 
