@@ -6,6 +6,7 @@ import papermill as pm
 
 NB_DIR = Path.cwd().parent.parent / "docs/transient"
 
+
 def get_notebooks() -> list[Path]:
     skip = ["besselaesnew_timing.ipynb"]
     NB_DIRS = [
@@ -20,6 +21,7 @@ def get_notebooks() -> list[Path]:
         nblist += [nb for nb in nbdir.glob("*.ipynb") if nb.name not in skip]
     return sorted(nblist)
 
+
 PARAMETERS = {
     "meandering_river.ipynb": {"NGR": 2},
     "horizontal_well.ipynb": {"N": 2},
@@ -27,6 +29,7 @@ PARAMETERS = {
     "river_in_cross_section.ipynb": {"MAX_NFEV": 2},
     "well_near_leaky_river.ipynb": {"N": 2},
 }
+
 
 # @pytest.mark.notebooks
 @pytest.mark.skip(reason="Use pytest --nbval on notebooks directly for coverage.")
@@ -39,13 +42,15 @@ def test_notebook(pth):
         str(output_path),
         timeout=600,
         cwd=pth.parent,
-        parameters = PARAMETERS.get(pth.name)
+        parameters=PARAMETERS.get(pth.name),
     )
     output_path.unlink()  # Remove the output notebook after execution
+
 
 # local run
 if __name__ == "__main__":
     from time import time
+
     times = {}
     for file in get_notebooks():
         start = time()

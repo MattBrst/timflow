@@ -3,34 +3,57 @@ from pathlib import Path
 import pytest
 import papermill as pm
 
-nbdirs = [
-    Path("docs/steady/00userguide/tutorials"),
-    Path("docs/steady/00userguide/howtos"),
-    Path("docs/steady/02examples"),
-    Path("docs/steady/03xsections"),
-    Path("docs/steady/04benchmarks"),
-]
+NB_DIR = Path.cwd().parent.parent / "docs/steady"
 
 
 def get_notebooks() -> list[Path]:
     skip = ["benchmarking_besselaes.ipynb", "vertical_anisotropy.ipynb"]
     nblist = []
+    nbdirs = [
+        NB_DIR / "00userguide/tutorials",
+        NB_DIR / "00userguide/howtos",
+        NB_DIR / "02examples",
+        NB_DIR / "03xsections",
+        NB_DIR / "04benchmarks",
+    ]
+
     for nbdir in nbdirs:
         nblist += [nb for nb in nbdir.glob("*.ipynb") if nb.name not in skip]
     return nblist
 
 
+PARAMETERS = {}
+
+
 # @pytest.mark.notebooks
 @pytest.mark.skip(reason="Use pytest --nbval on notebooks directly for coverage.")
 @pytest.mark.parametrize("pth", get_notebooks())
-def test_notebook(pth) -> None:
-    pth = Path(pth)
+def test_notebook(pth):
+    input_path = pth
+    output_path = pth.with_suffix(".out.ipynb")
     pm.execute_notebook(
-        pth,
-        str(pth.with_suffix(".out.ipynb")),
+        input_path,
+        str(output_path),
         timeout=600,
+        cwd=pth.parent,
+        parameters=PARAMETERS.get(pth.name),
     )
+    output_path.unlink()  # Remove the output notebook after execution
 
+
+# local run
 if __name__ == "__main__":
+    from time import time
+
+    times = {}
     for file in get_notebooks():
+        start = time()
         test_notebook(file)
+        end = time()
+        times[file] = end - start
+        print(f"Execution time for {file}: {end - start:.2f} seconds")
+
+    # Print summary
+    print("\nSummary:")
+    for file, duration in times.items():
+        print(f"{file}: {duration:.2f} seconds")
