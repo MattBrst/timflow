@@ -7,9 +7,7 @@ NB_DIR = Path.cwd().parent.parent / "docs/steady"
 
 
 def get_notebooks() -> list[Path]:
-    skip = ["benchmarking_besselaes.ipynb", "vertical_anisotropy.ipynb"]
-    nblist = []
-    nbdirs = [
+    NB_SUBDIRS = [
         NB_DIR / "00userguide/tutorials",
         NB_DIR / "00userguide/howtos",
         NB_DIR / "02examples",
@@ -17,14 +15,14 @@ def get_notebooks() -> list[Path]:
         NB_DIR / "04benchmarks",
     ]
 
-    for nbdir in nbdirs:
-        nblist += [nb for nb in nbdir.glob("*.ipynb") if nb.name not in skip]
+    nblist = [nb for NB_DIR in NB_SUBDIRS for nb in NB_DIR.glob("*.ipynb")]
     return nblist
 
 
 PARAMETERS = {
     "collector_wells.ipynb": {"NGR": 2},
     "besselnumba_timing.ipynb": {"N": 1},
+    "vertical_anisotropy.ipynb": {"NTOT": 1},
 }
 
 
@@ -50,8 +48,10 @@ if __name__ == "__main__":
 
     times = {}
     for file in get_notebooks():
+
         start = time()
-        test_notebook(file)
+        print(file)
+        # test_notebook(file)
         end = time()
         times[file] = end - start
         print(f"Execution time for {file}: {end - start:.2f} seconds")
