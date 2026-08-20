@@ -48,11 +48,10 @@ if __name__ == "__main__":
     times = {}
     for file in get_notebooks():
         start = time()
-        print(file)
-        # test_notebook(file)
+        test_notebook(file)
         end = time()
         times[file] = end - start
-        print(f"Execution time for {file}: {end - start:.2f} seconds")
+        print(f"Execution time for {file}: {times[file]:.2f} seconds")
 
     # Print summary
     print("\nSummary:")
