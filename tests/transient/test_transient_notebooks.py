@@ -21,7 +21,7 @@ PARAMETERS = {
     "meandering_river.ipynb": {"NGR": 2},
     "horizontal_well.ipynb": {"N": 2},
     "line_sink_well_sol.ipynb": {"NGR": 2},
-    "river_in_cross_section.ipynb": {"MAX_NFEV": 2},
+    "river_in_cross_section.ipynb": {"SOLVE_KWARGS": {"max_nfev": 1}},
     "well_near_leaky_river.ipynb": {"N": 2},
 }
 
