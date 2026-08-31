@@ -162,12 +162,12 @@ class HstarXsection(Element):
         self.term2 = self.aq.lab**2 * self.term2
         # # leakage from leaky layer with loading efficiency
         self.abc = (-self.aq.b.T + self.aq.a.T) / self.aq.c.T[:, np.newaxis]
-        # self.nbar = self.aq.leffll[:, np.newaxis] * self.abc
-        # self.nbar[:-1] += self.aq.leffll[1:, np.newaxis] * self.abc[1:]
-        # self.nbar = self.nbar / self.model.p
-        # self.nbar = self.aq.lab**2 * np.sum(self.aq.coef * self.nbar, axis=0)
-        # self.nbar = self.nbar[np.newaxis, :, :]
-        self.nbar = 0.0
+        self.nbar = self.aq.leffll[:, np.newaxis] * self.abc
+        self.nbar[:-1] += self.aq.leffll[1:, np.newaxis] * self.abc[1:]
+        self.nbar = self.nbar / self.model.p
+        self.nbar = self.aq.lab**2 * np.sum(self.aq.coef * self.nbar, axis=0)
+        self.nbar = self.nbar[np.newaxis, :, :]
+        self.nbarold = 0.0
         self.dischargeinf = self.aq.coef[0, :] * self.flowcoef * self.resfac
         self.dischargeinflayers = np.sum(
             self.dischargeinf * self.aq.eigvec[self.layers, :, :], 1
@@ -181,6 +181,7 @@ class HstarXsection(Element):
             aq = self.model.aq.find_aquifer_data(x, y)
         rv = np.zeros((self.nparam, aq.naq, self.model.npval), dtype=complex)
         if aq == self.aq:
+            #rv[:] = self.term + self.term2 + self.nbarold
             rv[:] = self.term + self.term2 + self.nbar
         return rv
 
