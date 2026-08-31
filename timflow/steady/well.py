@@ -8,7 +8,6 @@ Example::
     Well(ml, xw=100, yw=200, Qw=1000, layers=[0])
 """
 
-import inspect  # Used for storing the input
 import warnings
 
 import matplotlib.pyplot as plt
@@ -17,7 +16,7 @@ from scipy.special import k0, k1
 
 from timflow.steady.element import Element
 from timflow.steady.equation import HeadEquation, MscreenWellNoflowEquation
-from timflow.steady.trace import timtracelines
+from timflow.steady.trace import tracelines
 
 __all__ = [
     "Well",
@@ -193,7 +192,7 @@ class WellBase(Element):
                 message += " ({lab})".format(lab=self.label)
         return changed, terminate, [xyztnew], message
 
-    def capzone(
+    def capturezone(
         self,
         nt=10,
         zstart=None,
@@ -202,8 +201,6 @@ class WellBase(Element):
         tmax=None,
         nstepmax=100,
         silent=".",
-        *,
-        metadata=False,
     ):
         """Compute a capture zone.
 
@@ -227,10 +224,12 @@ class WellBase(Element):
 
         Returns
         -------
-        xyzt : list of arrays of x, y, z, and t values
+        list of dict
+            Full per-pathline result dicts from
+            :func:`~timflow.steady.trace.traceline`.
         """
         xstart, ystart, zstart = self.capzonestart(nt, zstart)
-        xyzt = timtracelines(
+        traces = tracelines(
             self.model,
             xstart,
             ystart,
@@ -240,9 +239,84 @@ class WellBase(Element):
             tmax=tmax,
             nstepmax=nstepmax,
             silent=silent,
-            metadata=metadata,
         )
-        return xyzt
+        reached_nstepmax = 0
+        for tr in traces:
+            if tr["message"] == "reached nstepmax iterations":
+                reached_nstepmax += 1
+        if reached_nstepmax > 0:
+            warnings.warn(
+                f"nstepmax reached before reaching tmax in {reached_nstepmax} pathlines",
+                UserWarning,
+                stacklevel=2,
+            )
+        return traces
+
+    def capzone(
+        self,
+        nt=10,
+        zstart=None,
+        hstepmax=10,
+        vstepfrac=0.2,
+        tmax=None,
+        nstepmax=100,
+        silent=".",
+        *,
+        metadata=False,
+    ):
+        """Compute a capture zone.
+
+        .. deprecated::
+            Use :meth:`capturezone` instead. This method will be removed in a
+            future version.
+
+        Parameters
+        ----------
+        nt : int
+            number of path lines
+        zstart : scalar or None
+            starting elevation of the path lines, middle of aquifer if None
+        hstepmax : scalar
+            maximum step in horizontal space
+        vstepfrac : float
+            maximum fraction of aquifer layer thickness during one step
+        tmax : scalar
+            maximum time
+        nstepmax : scalar(int)
+            maximum number of steps
+        silent : boolean or string
+            True (no messages), False (all messages), or '.'
+            (print dot for each path line)
+        metadata : bool, default False
+            If True, return full per-pathline result dicts from
+            :func:`~timflow.steady.trace.traceline`. If False, return only the
+            trace arrays.
+
+        Returns
+        -------
+        xyzt : list of dict or list of ndarray
+            With ``metadata=False`` (default), each item is only the ``(x, y, z, t)``
+            trace array. With ``metadata=True``, each item is a result dict from
+            :func:`~timflow.steady.trace.traceline`.
+        """
+        warnings.warn(
+            "Well.capzone is deprecated. Use Well.capturezone instead. "
+            "capzone will be removed in a future version.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        results = self.capturezone(
+            nt=nt,
+            zstart=zstart,
+            hstepmax=hstepmax,
+            vstepfrac=vstepfrac,
+            tmax=tmax,
+            nstepmax=nstepmax,
+            silent=silent,
+        )
+        if metadata:
+            return results
+        return [r["trace"] for r in results]
 
     def capzonestart(self, nt, zstart):
         eps = 1e-1
@@ -258,94 +332,13 @@ class WellBase(Element):
         if (layer is None) or np.isin(layer, self.layers).any():
             ax.plot(self.xw, self.yw, "k.")
 
-    def plotcapzone(
-        self,
-        nt=10,
-        zstart=None,
-        hstepmax=20,
-        vstepfrac=0.2,
-        tmax=365,
-        nstepmax=100,
-        silent=".",
-        color=None,
-        orientation="hor",
-        win=None,
-        ax=None,
-        figsize=None,
-        *,
-        return_traces=False,
-        metadata=False,
-    ):
-        """Plot a capture zone.
-
-        Parameters
-        ----------
-        nt : int
-            number of path lines
-        zstart : scalar
-            starting elevation of the path lines
-        hstepmax : scalar
-            maximum step in horizontal space
-        vstepfrac : float
-            maximum fraction of aquifer layer thickness during one step
-        tmax : scalar
-            maximum time
-        nstepmax : scalar(int)
-            maximum number of steps
-        silent : boolean or string
-            True (no messages), False (all messages), or '.'
-            (print dot for each path line)
-        color : color
-        orientation : string
-            'hor' for horizontal, 'ver' for vertical, or 'both' for both
-        win : array_like (length 4)
-            [xmin, xmax, ymin, ymax]
-        axes : matplotlib.Axes, tuple of 2 matplotlib.Axes, or None
-            axes to plot on, default is None which creates a new figure
-        figsize : tuple of integers, optional, default: None
-            width, height in inches.
-        return_traces : boolean (default False)
-            return the traces instead of plotting
-        metadata : boolean (default False)
-            return metadata along with traces
-
-        Returns
-        -------
-        ax : matplotlib.Axes
-            axes with plot
-        traces : list of arrays of x, y, z, and t values
-            only if return_traces is True
-        """
+    def plotcapzone(self, *args, **kwargs):
         warnings.warn(
-            "Well.plotcapzone is deprecated. Use Model.plots.plotcapzone instead.",
+            "plotcapzone has been removed. Use Model.plots.plot_capture_zone instead, "
+            "e.g. ml.plots.plot_capture_zone(w, ...) with the same plotting options.",
             DeprecationWarning,
             stacklevel=2,
         )
-        if win is None:
-            win = [-1e30, 1e30, -1e30, 1e30]
-        if not return_traces:
-            metadata = True  # suppress future warning from timtraceline
-        xstart, ystart, zstart = self.capzonestart(nt, zstart)
-        traces = self.model.plots.tracelines(
-            xstart,
-            ystart,
-            zstart,
-            hstepmax=-abs(hstepmax),
-            vstepfrac=vstepfrac,
-            tmax=tmax,
-            nstepmax=nstepmax,
-            silent=silent,
-            color=color,
-            orientation=orientation,
-            win=win,
-            ax=ax,
-            figsize=figsize,
-            return_traces=return_traces,
-            metadata=metadata,
-        )
-        if return_traces:
-            return ax, traces
-        return ax
 
 
 class Well(WellBase):
@@ -359,7 +352,7 @@ class Well(WellBase):
     is computed as.
 
     .. math::
-        Q_i = 2\pi r_w(h_i - h_w)/c
+        Q_i = 2 \pi r_w H (h_i - h_w) / c
 
     where :math:`c` is the resistance of the well screen and :math:`h_w` is
     the head inside the well. The total discharge is distributed over the
@@ -410,7 +403,7 @@ class Well(WellBase):
         xc=None,
         yc=None,
     ):
-        self.storeinput(inspect.currentframe())
+        """Initialize a steady well with a specified discharge."""
         WellBase.__init__(
             self,
             model,
@@ -506,7 +499,7 @@ class HeadWell(WellBase, HeadEquation):
         label=None,
         addtomodel=True,
     ):
-        self.storeinput(inspect.currentframe())
+        """Initialize a steady well with a specified head."""
         WellBase.__init__(
             self,
             model,
@@ -587,7 +580,7 @@ class TargetHeadWell(WellBase):
         label=None,
         addtomodel=True,
     ):
-        self.storeinput(inspect.currentframe())
+        """Initialize a steady well with a target head at a control point."""
         super().__init__(
             model,
             xw,
@@ -690,7 +683,6 @@ class LargeDiameterWell(WellBase, MscreenWellNoflowEquation):
         xc=None,
         yc=None,
     ):
-        self.storeinput(inspect.currentframe())
         WellBase.__init__(
             self,
             model,
@@ -968,6 +960,7 @@ class WellString(WellStringBase):
         layers=0,
         label=None,
     ):
+        """Initialize a steady string of wells with a specified discharge."""
         super().__init__(model, xy, layers=layers, name="WellString", label=label)
         self.Qw = float(Qw)
         self.rw = rw
@@ -1053,6 +1046,7 @@ class HeadWellString(WellStringBase):
         layers=0,
         label=None,
     ):
+        """Initialize a steady string of wells with a specified head."""
         super().__init__(model, xy, layers=layers, name="HeadWellString", label=label)
 
         self.hw = float(hw)
@@ -1130,6 +1124,7 @@ class TargetHeadWellString(WellStringBase):
         lcp=0,
         label=None,
     ):
+        """Initialize a steady string of wells with a target head."""
         super().__init__(
             model, xy, layers=layers, name="TargetHeadWellString", label=label
         )

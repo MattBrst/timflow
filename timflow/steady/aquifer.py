@@ -9,8 +9,6 @@ Example::
 
 """
 
-import inspect  # Used for storing the input
-
 import numpy as np
 import pandas as pd
 
@@ -20,7 +18,7 @@ __all__ = ["Aquifer", "SimpleAquifer"]
 
 
 class AquiferData:
-    def __init__(self, model, kaq, c, z, npor, ltype):
+    def __init__(self, model, kaq, c, z, npor, ltype, model3d=False):
         """Initialize aquifer data.
 
         Parameters
@@ -37,6 +35,8 @@ class AquiferData:
             Porosity of the aquifer(s).
         ltype : string or array of strings
             Type of the layers: 'a' for aquifer, 'l' for leaky layer.
+        model3d : bool, optional
+            Whether the model is Model3D (default is False).
         """
         # All input variables except model should be numpy arrays
         # That should be checked outside this function
@@ -55,6 +55,11 @@ class AquiferData:
         # tag indicating whether an aquifer is Laplace (confined on top)
         if self.ltype[0] == "a":
             self.ilap = 1
+            if self.c[0] != 1e100:
+                assert len(self.c) == self.naq - 1, (
+                    "If topboundary='conf', len(c) should be naq-1"
+                )
+                self.c = np.hstack((1e100, self.c))  # add confined resistance to c
         else:
             self.ilap = 0
         #
@@ -83,9 +88,13 @@ class AquiferData:
             self.nporll[1:] = self.npor[self.ltype == "l"]
         else:
             self.nporll = self.npor[self.ltype == "l"]
+        self.model3d = model3d
 
     def initialize(self):
         self.elementlist = []  # Elementlist of aquifer
+        # Recompute T for when kaq is changed
+        self.T = self.kaq * self.Haq
+        self.Tcol = self.T.reshape(self.naq, 1)
         d0 = 1.0 / (self.c * self.T)
         d0[:-1] += 1.0 / (self.c[1:] * self.T[:-1])
         dp1 = -1.0 / (self.c[1:] * self.T[1:])
@@ -121,9 +130,6 @@ class AquiferData:
     def isinside(self, x, y):
         raise Exception("Must overload AquiferData.isinside()")
 
-    def storeinput(self, frame):
-        self.inputargs, _, _, self.inputvalues = inspect.getargvalues(frame)
-
     def findlayer(self, z):
         """Returns layer-number, layer-type and model-layer-number."""
         if z > self.z[0]:
@@ -147,40 +153,38 @@ class AquiferData:
             Summary of aquifer parameters including layer type, thickness,
             hydraulic conductivity, and resistance.
         """
-        if self.nlayers == self.naq:
-            model3d = True
+        if self.model3d:
             add_cols = ["kzoverkh"]
         else:
-            model3d = False
             add_cols = []
         summary = pd.DataFrame(
             index=range(self.nlayers),
-            columns=["layer", "layer_type", "H", "k_h", "c"] + add_cols,
+            columns=["layer", "layer_type", "H", "k_h"] + add_cols + ["c"],
         )
         summary.index.name = "#"
         layertype = {"a": "aquifer", "l": "leaky layer"}
         summary["layer_type"] = [layertype[lt] for lt in self.ltype]
         maskaq = self.ltype == "a"
         if self.ilap == 1:  # confined on top
-            summary.iloc[maskaq, 2] = self.Haq
-            summary.iloc[maskaq, 3] = self.kaq
-            if model3d:
-                summary.iloc[maskaq, 4] = self.c
-                summary.iloc[0, 4] = np.nan  # reset confined resistance to nan
-                summary.iloc[maskaq, 5] = self.kzoverkh
+            summary.loc[maskaq, "H"] = self.Haq
+            summary.loc[maskaq, "k_h"] = self.kaq
+            if self.model3d:
+                summary.loc[maskaq, "c"] = self.c
+                summary.loc[0, "c"] = np.nan  # reset confined resistance to nan
+                summary.loc[maskaq, "kzoverkh"] = self.kzoverkh
             else:
-                summary.iloc[~maskaq, 2] = self.Hll[1:]
-                summary.iloc[~maskaq, 4] = self.c[1:]
+                summary.loc[~maskaq, "H"] = self.Hll[1:]
+                summary.loc[~maskaq, "c"] = self.c[1:]
         else:
-            summary.iloc[maskaq, 2] = self.Haq
-            summary.iloc[maskaq, 3] = self.kaq
-            if model3d:
-                summary.iloc[~maskaq, 2] = self.Hll[0]
-                summary.iloc[maskaq, 4] = self.c
-                summary.iloc[maskaq, 5] = self.kzoverkh
+            summary.loc[maskaq, "H"] = self.Haq
+            summary.loc[maskaq, "k_h"] = self.kaq
+            if self.model3d:
+                summary.loc[~maskaq, "H"] = self.Hll[0]
+                summary.loc[maskaq, "c"] = self.c
+                summary.loc[maskaq, "kzoverkh"] = self.kzoverkh
             else:
-                summary.iloc[~maskaq, 2] = self.Hll
-                summary.iloc[~maskaq, 4] = self.c
+                summary.loc[~maskaq, "H"] = self.Hll
+                summary.loc[~maskaq, "c"] = self.c
         summary.loc[:, "layer"] = self.layernumber
         return summary  # .set_index("layer")
 
@@ -191,26 +195,32 @@ class Aquifer(AquiferData):
     Extends AquiferData and supports inhomogeneities within a model.
     """
 
-    def __init__(self, model, kaq, c, z, npor, ltype):
-        super().__init__(model, kaq, c, z, npor, ltype)
-        self.inhomlist = []
+    def __init__(self, model, kaq, c, z, npor, ltype, model3d=False):
+        super().__init__(model, kaq, c, z, npor, ltype, model3d=model3d)
+        self.inhomdict = {}
         self.area = 1e300  # Needed to find smallest inhom
 
     def initialize(self):
-        # cause we are going to call initialize for inhoms
-        AquiferData.initialize(self)
-        for inhom in self.inhomlist:
+        super().initialize()
+        # 2 passes to ensure all data is present prior to creating elements
+        for inhom in self.inhomdict.values():
             inhom.initialize()
-        for inhom in self.inhomlist:
+        for inhom in self.inhomdict.values():
             inhom.create_elements()
 
     def add_inhom(self, inhom):
-        self.inhomlist.append(inhom)
-        return len(self.inhomlist) - 1  # returns number in the list
+        inhom_number = len(self.inhomdict)
+        if not hasattr(inhom, "name") or inhom.name is None:
+            inhom.name = f"inhom{inhom_number:02g}"
+        if inhom.name in self.inhomdict:
+            raise ValueError(f"Inhomogeneity name '{inhom.name}' already exists.")
+        self.inhomdict[inhom.name] = inhom
+        self.model.initialized = False  # mark model as uninitialized
+        return inhom_number
 
     def find_aquifer_data(self, x, y):
         rv = self
-        for inhom in self.inhomlist:
+        for inhom in self.inhomdict.values():
             if inhom.isinside(x, y):
                 if inhom.area < rv.area:
                     rv = inhom
@@ -228,9 +238,10 @@ class SimpleAquifer(Aquifer):
         Number of aquifers.
     """
 
-    def __init__(self, naq):
+    def __init__(self, ml, naq):
+        self.model = ml
         self.naq = naq
-        self.inhomlist = []
+        self.inhomdict = {}
         self.area = 1e300  # Needed to find smallest inhomogeneity
         self.elementlist = []
 
@@ -238,7 +249,8 @@ class SimpleAquifer(Aquifer):
         return f"Simple Aquifer: {self.naq} aquifer(s)"
 
     def initialize(self):
-        for inhom in self.inhomlist:
+        # 2 passes to ensure all data is present prior to creating elements
+        for inhom in self.inhomdict.values():
             inhom.initialize()
-        for inhom in self.inhomlist:
+        for inhom in self.inhomdict.values():
             inhom.create_elements()

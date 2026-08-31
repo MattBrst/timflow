@@ -160,39 +160,9 @@ class Xsection(AquiferData):
         """
         return (x >= self.x1) and (x < self.x2)
 
-    def initialize(self):
-        super().initialize()
-        self.create_elements()
-
     def create_elements(self):
         """Create linesinks to meet the continuity conditions the at the boundaries."""
-        if (self.x1 == -np.inf) and (self.x2 == np.inf):
-            # no reason to add elements
-            pass
-        # HeadDiff on right side, FluxDiff on left side
-        elif self.x1 == -np.inf:
-            xin = self.x2 - self.tiny
-            # xoutright = self.x2 + self.tiny
-            aqin = self.model.aq.find_aquifer_data(xin, 0)
-            # aqoutright = self.model.aq.find_aquifer_data(xoutright, 0)
-            if self.addlinesinks:
-                HeadDiffLineSink1D(
-                    self.model,
-                    self.x2,
-                    layers=range(self.naq),
-                    aq=aqin,
-                    label=None,
-                )
-        elif self.x2 == np.inf:
-            xin = self.x1 + self.tiny
-            # xoutleft = self.x1 - self.tiny
-            aqin = self.model.aq.find_aquifer_data(xin, 0)
-            # aqoutleft = self.model.aq.find_aquifer_data(xoutleft, 0)
-            if self.addlinesinks:
-                FluxDiffLineSink1D(
-                    self.model, self.x1, range(self.naq), aq=aqin, label=None
-                )
-        else:
+        if np.isfinite(self.x1) and np.isfinite(self.x2):
             xin = 0.5 * (self.x1 + self.x2)
             # xoutleft = self.x1 - self.tiny
             # xoutright = self.x2 + self.tiny
@@ -206,8 +176,31 @@ class Xsection(AquiferData):
                 FluxDiffLineSink1D(
                     self.model, self.x1, range(self.naq), label=None, aq=aqin
                 )
+        # HeadDiff on right side, FluxDiff on left side
+        elif np.isneginf(self.x1) and not np.isposinf(self.x2):
+            xin = self.x2 - self.tiny
+            # xoutright = self.x2 + self.tiny
+            aqin = self.model.aq.find_aquifer_data(xin, 0)
+            # aqoutright = self.model.aq.find_aquifer_data(xoutright, 0)
+            if self.addlinesinks:
+                HeadDiffLineSink1D(
+                    self.model,
+                    self.x2,
+                    layers=range(self.naq),
+                    aq=aqin,
+                    label=None,
+                )
+        elif np.isposinf(self.x2) and not np.isneginf(self.x1):
+            xin = self.x1 + self.tiny
+            # xoutleft = self.x1 - self.tiny
+            aqin = self.model.aq.find_aquifer_data(xin, 0)
+            # aqoutleft = self.model.aq.find_aquifer_data(xoutleft, 0)
+            if self.addlinesinks:
+                FluxDiffLineSink1D(
+                    self.model, self.x1, range(self.naq), aq=aqin, label=None
+                )
         if self.tsandN is not None:
-            assert self.topboundary == "con", Exception(
+            assert self.topboundary == "con" or self.topboundary == "phr", Exception(
                 "Infiltration can only be applied to a confined aquifer."
             )
             AreaSinkXsection(self.model, self.x1, self.x2, tsandN=self.tsandN)
@@ -220,11 +213,14 @@ class Xsection(AquiferData):
     def plot(
         self,
         ax=None,
-        labels=False,
-        params=False,
-        names=False,
-        fmt=None,
+        labels: bool = False,
+        params: bool = False,
+        names: bool = False,
+        fmt: str | None = None,
         sep: Literal[", ", "\n"] = ", ",
+        units: dict = None,
+        layer_names: tuple | dict = ("aquifer", "leaky layer"),
+        ha: str = "center",
         **kwargs,
     ):
         r"""Plot the cross-section.
@@ -243,6 +239,19 @@ class Xsection(AquiferData):
             format string for parameter values, e.g. '.2f' for 2 decimals.
         sep : str
             Separator between parameters, either ", " or "\n"
+        units : dict, optional
+            Dictionary with units for parameters, only used if params is True.
+            Use timflow parameter names as keys e.g.
+            {"kaq": "m/d", "c": "d", "Saq": "m$^{-1}$", "Sll": "m$^{-1}$"}.
+        layer_names : tuple or dict, optional
+            names for aquifers and leaky layers, default is ('aquifer', 'leaky layer').
+            If a dict is provided, it maps layer type and number to a name,
+            e.g. {'aquifer 0': 'top aquifer', 'leaky layer 1': 'clay layer'}
+        sep : str, optional
+            Separator between parameters, either ", " or "\n"
+        ha : str, optional
+            Horizontal alignment for parameter labels. Defaults to "center".
+
         """
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(8, 4))
@@ -270,13 +279,15 @@ class Xsection(AquiferData):
 
         if fmt is None:
             fmt = ""
-        ssfmt = ".2e"
+            ssfmt = ".2e"
+        else:
+            ssfmt = f"{fmt[:-1]}e"
 
         r = x2 - x1
         r0 = x1
 
         if labels or params:
-            lli = 1 if self.topboundary == "con" else 0
+            lli = 1 if self.topboundary in ["con", "phr"] else 0
             aqi = 0
         else:
             lli = None
@@ -293,6 +304,15 @@ class Xsection(AquiferData):
                 transform=ax.get_xaxis_transform(),
             )
 
+        if params and (units is not None):
+            kh_unitstr = f" {units['kaq']}" if "kaq" in units else ""
+            ss_unitstr = f" {units['Saq']}" if "Saq" in units else ""
+            c_unitstr = f" {units['c']}" if "c" in units else ""
+        else:
+            kh_unitstr = ""
+            ss_unitstr = ""
+            c_unitstr = ""
+
         for i in range(self.nlayers):
             if self.ltype[i] == "l":
                 ax.fill_between(
@@ -302,36 +322,51 @@ class Xsection(AquiferData):
                     color=[0.8, 0.8, 0.8],
                 )
                 if labels:
+                    if isinstance(layer_names, tuple):
+                        llname = f"{layer_names[1]} {lli}"
+                    elif isinstance(layer_names, dict):
+                        llname = f"leaky layer {lli}"
+                        llname = layer_names.get(llname, llname)
+                    else:
+                        llname = f"leaky layer {lli}"
                     ax.text(
                         r0 + 0.5 * r if not params else r0 + 0.25 * r,
                         np.mean(self.z[i : i + 2]),
-                        f"leaky layer {lli}",
+                        llname,
                         ha="center",
                         va="center",
                     )
                 if params:
                     cstr = f"$c$ = {self.c[lli]:{fmt}}"
                     sstr = f"$S_s$ = {self.Sll[lli]:{ssfmt}}"
+                    cstr_with_unit = cstr + c_unitstr
+                    sstr_with_unit = sstr + ss_unitstr
                     if sep == "\n":
-                        nspaces = max(len(sstr) - len(cstr), 1)
-                        paramtxt = cstr + " " * nspaces + sep + sstr
+                        paramtxt = cstr_with_unit + sep + sstr_with_unit
                     else:
-                        paramtxt = cstr + sep + sstr
+                        paramtxt = cstr_with_unit + sep + sstr_with_unit
                     ax.text(
                         r0 + 0.75 * r if labels else r0 + 0.5 * r,
                         np.mean(self.z[i : i + 2]),
                         paramtxt,
-                        ha="center",
+                        ha=ha,
                         va="center",
                     )
                 if labels or params:
                     lli += 1
 
             if labels and self.ltype[i] == "a":
+                if isinstance(layer_names, tuple):
+                    aqname = f"{layer_names[0]} {aqi}"
+                elif isinstance(layer_names, dict):
+                    aqname = f"aquifer {aqi}"
+                    aqname = layer_names.get(aqname, aqname)
+                else:
+                    aqname = f"aquifer {aqi}"
                 ax.text(
                     r0 + 0.5 * r if not params else r0 + 0.25 * r,
                     np.mean(self.z[i : i + 2]),
-                    f"aquifer {aqi}",
+                    aqname,
                     ha="center",
                     va="center",
                 )
@@ -342,15 +377,14 @@ class Xsection(AquiferData):
                 else:
                     sstr = f"$S_s$ = {self.Saq[aqi]:{ssfmt}}"
                 if sep == "\n":
-                    nspaces = max(len(sstr) - len(khstr), 1)
-                    paramtxt = khstr + "  " * nspaces + "\n" + sstr
+                    paramtxt = khstr + kh_unitstr + "\n" + sstr + ss_unitstr
                 else:
-                    paramtxt = khstr + sep + sstr
+                    paramtxt = khstr + kh_unitstr + sep + sstr + ss_unitstr
                 ax.text(
                     r0 + 0.75 * r if labels else r0 + 0.5 * r,
                     np.mean(self.z[i : i + 2]),
                     paramtxt,
-                    ha="center",
+                    ha=ha,
                     va="center",
                 )
             if (labels or params) and self.ltype[i] == "a":
@@ -401,12 +435,11 @@ class XsectionMaq(Xsection):
         Porosities of the aquifers.
     porll : array
         Porosities of the leaky layers.
-    topboundary : str
-        Type of top boundary. Can be 'conf' for confined, 'semi' for semi-confined
-        or "leaky" for a leaky top boundary.
-    phreatictop : bool
-        If true, interpret the first specific storage coefficient as specific
-        yield., i.e. it is not multiplied by aquifer thickness.
+    topboundary : string, 'confined', 'phreatic', 'semi', or 'leaky' (default is 'conf')
+        indicating whether the top is confined ('con' is enough), phreatic ('phr' is
+        enough), semi-confined ('sem' is enough), or a leaky layer ('lea' is enough).
+        When phreatic, the storage coefficient (Saq) of the top model layer is
+        treated as phreatic storage (and not multiplied with the aquifer thickness)
     tsandhstar : list of tuples
         list containing time and water level pairs for the hstar boundary condition.
     tsandN : list of tuples
@@ -503,12 +536,12 @@ class Xsection3D(Xsection):
         loading efficiency of the leaky layer
     poraq : array
         Porosities of the aquifers.
-    topboundary : str
-        Type of top boundary. Can be 'conf' for confined, 'semi' for semi-confined
-        or "leaky" for a leaky top boundary.
-    phreatictop : bool
-        If true, interpret the first specific storage coefficient as specific
-        yield., i.e. it is not multiplied by aquifer thickness.
+    topboundary : string, 'confined', 'phreatic', or 'semi' (default is 'conf')
+        indicating whether the top is confined ('con' is enough), phreatic
+        ('phr' is enough) or semi-confined ('sem' is enough).
+        When 'phreatic', the storage coefficient (Saq) of the top model layer is
+        treated as phreatic storage (and not multiplied with the aquifer thickness)
+        When 'semi', the topres and topthick must be specified.
     topres : scalar
         Resistance of the top boundary. Only used if topboundary is 'leaky'.
     topthick : scalar

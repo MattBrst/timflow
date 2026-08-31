@@ -10,7 +10,6 @@ Example::
 
 """
 
-import inspect  # user for storing the input
 import warnings
 
 import matplotlib.pyplot as plt
@@ -58,17 +57,16 @@ class Xsection(AquiferData):
 
     tiny = 1e-12
 
-    def __init__(self, model, x1, x2, kaq, c, z, npor, ltype, hstar, N, name=None):
-        super().__init__(model, kaq, c, z, npor, ltype)
+    def __init__(
+        self, model, x1, x2, kaq, c, z, npor, ltype, model3d, hstar, N, name=None
+    ):
+        super().__init__(model, kaq, c, z, npor, ltype, model3d)
         self.x1 = x1
         self.x2 = x2
         self.hstar = hstar
         self.N = N
+        self.name = name
         self.inhom_number = self.model.aq.add_inhom(self)
-        if name is None:
-            self.name = f"inhom{self.inhom_number:02g}"
-        else:
-            self.name = name
         self.addlinesinks = True  # Set to False not to add line-sinks
 
     def __repr__(self):
@@ -144,7 +142,18 @@ class Xsection(AquiferData):
             c = ConstantStar(self.model, self.hstar, aq=aqin)
             c.inhomelement = True
 
-    def plot(self, ax=None, labels=False, params=False, names=False, fmt=None, **kwargs):
+    def plot(
+        self,
+        ax=None,
+        labels: bool = False,
+        params: bool = False,
+        names: bool = False,
+        fmt: str | None = None,
+        units: dict | None = None,
+        layer_names: tuple | dict = ("aquifer", "leaky layer"),
+        ha: str = "center",
+        **kwargs,
+    ):
         """Plot the cross-section.
 
         Parameters
@@ -159,6 +168,16 @@ class Xsection(AquiferData):
             If True, add inhomogeneity names.
         fmt : str
             format string for parameters
+        units : dict, optional
+            Dictionary with units for parameters, only used if params is True.
+            Use timflow parameter names as keys e.g.
+            {"kaq": "m/d", "c": "d"}.
+        layer_names : tuple or dict, optional
+            names for aquifers and leaky layers, default is ('aquifer', 'leaky layer').
+            If a dict is provided, it maps layer type and number to a name,
+            e.g. {'aquifer 0': 'top aquifer', 'leaky layer 1': 'clay layer'
+        ha : str, optional
+            Horizontal alignment for parameter labels. Defaults to "center".
         """
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(8, 4))
@@ -167,18 +186,29 @@ class Xsection(AquiferData):
             x1 = kwargs.pop("x1")
             if np.isfinite(self.x1):
                 x1 = max(x1, self.x1)
+            else:
+                x1 = self.x2 - 100.0
         elif np.isfinite(self.x1):
             x1 = self.x1
         else:
             x1 = self.x2 - 100.0
+
         if "x2" in kwargs:
             x2 = kwargs.pop("x2")
             if np.isfinite(self.x2):
                 x2 = min(x2, self.x2)
+            else:
+                x2 = self.x1 + 100.0
         elif np.isfinite(self.x2):
             x2 = self.x2
         else:
             x2 = self.x1 + 100.0
+
+        # final trap for infinite domains
+        if np.isinf(x1):
+            x1 = -100.0
+        if np.isinf(x2):
+            x2 = 100.0
 
         if self.x1 > x2 or self.x2 < x1:
             # do nothing, inhom is outside the window
@@ -208,6 +238,13 @@ class Xsection(AquiferData):
                 transform=ax.get_xaxis_transform(),
             )
 
+        if params and (units is not None):
+            kh_unitstr = f" {units['kaq']}" if "kaq" in units else ""
+            c_unitstr = f" {units['c']}" if "c" in units else ""
+        else:
+            kh_unitstr = ""
+            c_unitstr = ""
+
         for i in range(self.nlayers):
             if self.ltype[i] == "l":
                 ax.fill_between(
@@ -217,40 +254,54 @@ class Xsection(AquiferData):
                     color=[0.8, 0.8, 0.8],
                 )
                 if labels:
+                    if isinstance(layer_names, tuple):
+                        llname = f"{layer_names[1]} {lli}"
+                    elif isinstance(layer_names, dict):
+                        llname = f"leaky layer {lli}"
+                        llname = layer_names.get(llname, llname)
+                    else:
+                        llname = f"leaky layer {lli}"
                     ax.text(
                         r0 + 0.5 * r if not params else r0 + 0.25 * r,
                         np.mean(self.z[i : i + 2]),
-                        f"leaky layer {lli}",
+                        llname,
                         ha="center",
                         va="center",
                     )
                 if params:
-                    paramtxt = f"$c$ = {self.c[lli]:{fmt}}"
+                    paramtxt = f"$c$ = {self.c[lli]:{fmt}}" + c_unitstr
                     ax.text(
                         r0 + 0.75 * r if labels else r0 + 0.5 * r,
                         np.mean(self.z[i : i + 2]),
                         paramtxt,
-                        ha="center",
+                        ha=ha,
                         va="center",
                     )
                 if labels or params:
                     lli += 1
 
             if labels and self.ltype[i] == "a":
+                if isinstance(layer_names, tuple):
+                    aqname = f"{layer_names[0]} {aqi}"
+                elif isinstance(layer_names, dict):
+                    aqname = f"aquifer {aqi}"
+                    aqname = layer_names.get(aqname, aqname)
+                else:
+                    aqname = f"aquifer {aqi}"
                 ax.text(
                     r0 + 0.5 * r if not params else r0 + 0.25 * r,
                     np.mean(self.z[i : i + 2]),
-                    f"aquifer {aqi}",
+                    aqname,
                     ha="center",
                     va="center",
                 )
             if params and self.ltype[i] == "a":
-                paramtxt = f"$k_h$ = {self.kaq[aqi]:{fmt}}"
+                paramtxt = f"$k_h$ = {self.kaq[aqi]:{fmt}}" + kh_unitstr
                 ax.text(
                     r0 + 0.75 * r if labels else r0 + 0.5 * r,
                     np.mean(self.z[i : i + 2]),
                     paramtxt,
-                    ha="center",
+                    ha=ha,
                     va="center",
                 )
             if (labels or params) and self.ltype[i] == "a":
@@ -332,14 +383,16 @@ class XsectionMaq(Xsection):
             c = []
         if z is None:
             z = [1, 0]
-        self.storeinput(inspect.currentframe())
         (
             kaq,
             c,
             npor,
             ltype,
         ) = param_maq(kaq, z, c, npor, topboundary)
-        super().__init__(model, x1, x2, kaq, c, z, npor, ltype, hstar, N, name=name)
+        model3d = False
+        super().__init__(
+            model, x1, x2, kaq, c, z, npor, ltype, model3d, hstar, N, name=name
+        )
 
 
 class Xsection3D(Xsection):
@@ -408,7 +461,6 @@ class Xsection3D(Xsection):
     ):
         if z is None:
             z = [1, 0]
-        self.storeinput(inspect.currentframe())
         (
             kaq,
             kzoverkh,
@@ -418,7 +470,10 @@ class Xsection3D(Xsection):
         ) = param_3d(kaq, z, kzoverkh, npor, topboundary, topres)
         if topboundary == "semi":
             z = np.hstack((z[0] + topthick, z))
-        super().__init__(model, x1, x2, kaq, c, z, npor, ltype, hstar, N, name=name)
+        model3d = True
+        super().__init__(
+            model, x1, x2, kaq, c, z, npor, ltype, model3d, hstar, N, name=name
+        )
         self.kzoverkh = kzoverkh
 
 

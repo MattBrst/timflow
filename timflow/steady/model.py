@@ -10,7 +10,6 @@ Example::
     ml.solve()
 """
 
-import inspect  # Used for storing the input
 import multiprocessing as mp
 import warnings
 
@@ -22,8 +21,25 @@ from timflow.steady.aquifer import Aquifer, SimpleAquifer
 from timflow.steady.aquifer_parameters import param_3d, param_maq
 from timflow.steady.constant import ConstantStar
 from timflow.steady.plots import PlotSteady
+from timflow.version import check_tqdm_parallel
 
 __all__ = ["Model", "ModelMaq", "Model3D", "ModelXsection"]
+
+
+def _compute_head_mp(args):
+    """Helper function for parallel computation of head_array."""
+    model, xi, yi, layers, i = args
+    return i, model.head(xi, yi, layers=layers)
+
+
+def _compute_velocity_mp(args):
+    """Helper function for parallel computation of velocity_array."""
+    model, xi, yi, zi, i = args
+    try:
+        vv = model.velocomp(xi, yi, zi)
+    except (ZeroDivisionError, ValueError):
+        vv = np.full((3,), np.nan)
+    return i, vv
 
 
 class Model:
@@ -53,17 +69,18 @@ class Model:
         'l' leaky layer
     """
 
-    def __init__(self, kaq, c, z, npor, ltype):
+    def __init__(self, kaq, z, c, npor, ltype, model3d=False):
         # All input variables are numpy arrays
         # That should be checked outside this function
         self.elementlist = []
         self.elementdict = {}  # only elements that have a label
-        self.aq = Aquifer(self, kaq, c, z, npor, ltype)
-        self.modelname = "ml"  # Used for writing out input
+        self.aq = Aquifer(self, kaq, c, z, npor, ltype, model3d=model3d)
         self.name = "Model"
         self.model_type = "steady"  # Model type for plotting and other purposes
 
         self.plots = PlotSteady(self)
+
+        self.initialized = False
 
     def initialize(self):
         # remove inhomogeneity elements (they are added again)
@@ -71,20 +88,20 @@ class Model:
         self.aq.initialize()
         for e in self.elementlist:
             e.initialize()
+        self.initialized = True
 
     def add_element(self, e):
         self.elementlist.append(e)
         if e.label is not None:
             self.elementdict[e.label] = e
+        self.initialized = False
 
     def remove_element(self, e):
         """Remove element `e` from model."""
         if e.label is not None:
             self.elementdict.pop(e.label)
         self.elementlist.remove(e)
-
-    def storeinput(self, frame):
-        self.inputargs, _, _, self.inputvalues = inspect.getargvalues(frame)
+        self.initialized = False
 
     def potential(self, x, y, aq=None):
         if aq is None:
@@ -258,19 +275,88 @@ class Model:
         else:
             return rv[layers]
 
-    def headgrid(self, xg, yg, layers=None, printrow=False):
+    def head_array(self, x, y, layers=None, show_progress=False, parallel=False):
+        """Head for array of points.
+
+        Parameters
+        ----------
+        x : 1D array or list
+            x values of points
+        y : 1D array or list
+            y values of points
+        layers : integer, list or array, optional
+            layers for which grid is returned
+        show_progress : bool
+            show computation progress, by printing dots per row or with tqdm progressbar
+            when parallel is True. Default is False.
+        parallel : bool or int, optional
+            if `True`, computes head_array in parallel using multiprocessing,
+            by default `False`. If an integer is provided, it is interpreted as the
+            number of processes to use.
+
+        Returns
+        -------
+        h : array
+            heads array with size (nlayers, npoints)
+        """
+        parallel, process_map, tqdm = check_tqdm_parallel(parallel)
+        x = np.atleast_1d(x)
+        y = np.atleast_1d(y)
+        npts = len(x)
+        assert npts == len(y), "x and y must have the same length"
+        if layers is None:
+            nlayers = self.aq.find_aquifer_data(x[0], y[0]).naq
+        else:
+            nlayers = len(np.atleast_1d(layers))
+        h = np.empty((nlayers, npts))
+        if not parallel:
+            for i in (
+                tqdm(range(npts), disable=not show_progress) if tqdm else range(npts)
+            ):
+                h[:, i] = self.head(x[i], y[i], layers)
+        else:
+            nproc = mp.cpu_count() if parallel is True else int(parallel)
+            chunksize = max(1, npts // (4 * nproc)) if nproc > 0 else 1
+            tasks = [(self, x[i], y[i], layers, i) for i in range(npts)]
+            results = process_map(
+                _compute_head_mp,
+                tasks,
+                total=npts,
+                desc="head array",
+                disable=not show_progress,
+                tqdm_class=tqdm,
+                max_workers=nproc,
+                chunksize=chunksize,
+            )
+
+            for i, result in results:
+                h[:, i] = result
+        return h
+
+    def headgrid(
+        self, xg, yg, layers=None, printrow=False, show_progress=False, parallel=False
+    ):
         """Grid of heads.
 
         Parameters
         ----------
-        xg : array
+        xg : 1d-array
             x values of grid
-        yg : array
+        yg : 1d-array
             y values of grid
         layers : integer, list or array, optional
             layers for which grid is returned
-        printrow : boolean, optional
-            prints dot to screen for each row of grid if set to `True`
+        show_progress : bool
+            show computation progress, by printing dots per row or with tqdm progressbar
+            when parallel is True. Default is False.
+        parallel : bool or int, optional
+            if `True`, computes headgrid in parallel using multiprocessing,
+            by default `False`. If an integer is provided, it is interpreted as the
+            number of processes to use.
+        printrow : bool, optional
+
+            .. deprecated:: 0.2.0
+                prints dot to screen for each row of grid if set to `True`
 
         Returns
         -------
@@ -278,24 +364,39 @@ class Model:
 
         See Also
         --------
+        :func:`~timflow.steady.Model.head_array`
         :func:`~timflow.steady.Model.headgrid2`
         """
-        nx, ny = len(xg), len(yg)
-        if layers is None:
-            Nlayers = self.aq.find_aquifer_data(xg[0], yg[0]).naq
-        else:
-            Nlayers = len(np.atleast_1d(layers))
-        h = np.empty((Nlayers, ny, nx))
-        for j in range(ny):
-            if printrow:
-                print(".", end="", flush=True)
-            for i in range(nx):
-                h[:, j, i] = self.head(xg[i], yg[j], layers)
         if printrow:
-            print("", flush=True)
-        return h
+            warnings.warn(
+                "printrow is deprecated, use show_progress instead",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            show_progress = printrow
+        x, y = np.meshgrid(xg, yg)
+        h = self.head_array(
+            x.ravel(),
+            y.ravel(),
+            layers=layers,
+            show_progress=show_progress,
+            parallel=parallel,
+        )
+        return h.reshape((h.shape[0], len(yg), len(xg)))
 
-    def headgrid2(self, x1, x2, nx, y1, y2, ny, layers=None, printrow=False):
+    def headgrid2(
+        self,
+        x1,
+        x2,
+        nx,
+        y1,
+        y2,
+        ny,
+        layers=None,
+        show_progress=False,
+        printrow=False,
+        parallel=False,
+    ):
         """Grid of heads.
 
         Parameters
@@ -306,8 +407,17 @@ class Model:
             y values are generated as linspace(y1, y2, ny)
         layers : integer, list or array, optional
             layers for which grid is returned
+        show_progress : bool
+            show computation progress, by printing dots per row or with tqdm progressbar
+            when parallel is True. Default is False.
+        parallel : bool or int, optional
+            if `True`, computes headgrid in parallel using multiprocessing,
+            by default `False`. If an integer is provided, it is interpreted as the
+            number of processes to use.
         printrow : boolean, optional
-            prints dot to screen for each row of grid if set to `True`
+
+            .. deprecated:: 0.2.0
+                prints dot to screen for each row of grid if set to `True`
 
         Returns
         -------
@@ -315,10 +425,18 @@ class Model:
 
         See Also
         --------
+        :func:`~timflow.steady.Model.head_array`
         :func:`~timflow.steady.Model.headgrid`
         """
         xg, yg = np.linspace(x1, x2, nx), np.linspace(y1, y2, ny)
-        return self.headgrid(xg, yg, layers=layers, printrow=printrow)
+        return self.headgrid(
+            xg,
+            yg,
+            layers=layers,
+            printrow=printrow,
+            show_progress=show_progress,
+            parallel=parallel,
+        )
 
     def headalongline(self, x, y, layers=None):
         """Head along line or curve.
@@ -349,6 +467,76 @@ class Model:
             h[:, i] = self.head(xg[i], yg[i], layers)
         return h
 
+    def disvecgrid(
+        self,
+        xg,
+        yg,
+        layers=None,
+        show_progress=True,
+        parallel=False,
+    ):
+        """Compute grid of discharge vectors.
+
+        Parameters
+        ----------
+        xg : 1d-array
+            x values of grid
+        yg : 1d-array
+            y values of grid
+        layers : integer, list or array, optional
+            layers for which grid is returned
+        show_progress : bool
+            show computation progress, by printing dots per row or with tqdm progressbar
+            when parallel is True. Default is True.
+        parallel : bool, optional
+            if `True`, computes discharge vector grid in parallel using multiprocessing,
+            by default `False`
+
+        Returns
+        -------
+        qx : array size (Nlayers, ny, nx)
+            x component of discharge vector at each point in grid
+        qy : array size (Nlayers, ny, nx)
+            y component of discharge vector at each point in grid
+        """
+        parallel, thread_map, tqdm = check_tqdm_parallel(parallel)
+
+        xg = np.atleast_1d(xg)
+        yg = np.atleast_1d(yg)
+        nx, ny = len(xg), len(yg)
+        if layers is None:
+            Nlayers = self.aq.find_aquifer_data(xg[0], yg[0]).naq
+        else:
+            Nlayers = len(np.atleast_1d(layers))
+        qx = np.empty((Nlayers, ny, nx))
+        qy = np.empty((Nlayers, ny, nx))
+        if not parallel:
+            for j in range(ny):
+                if show_progress:
+                    print(".", end="", flush=True)
+                for i in range(nx):
+                    qx[:, j, i], qy[:, j, i] = self.disvec(xg[i], yg[j], layers)
+            if show_progress:
+                print("", flush=True)
+        else:
+
+            def compute(ij):
+                i, j = ij
+                return i, j, self.disvec(xg[i], yg[j], layers)
+
+            results = thread_map(
+                compute,
+                [(i, j) for j in range(ny) for i in range(nx)],
+                total=nx * ny,
+                desc="disvecgrid",
+                disable=not show_progress,
+                tqdm_class=tqdm,
+            )
+            for i, j, result in results:
+                qx[:, j, i], qy[:, j, i] = result
+
+        return qx, qy
+
     def disvecalongline(self, x, y, layers=None):
         """Compute discharge vector along line.
 
@@ -378,21 +566,159 @@ class Model:
             Qx[:, i], Qy[:, i] = self.disvec(xg[i], yg[i], layers)
         return Qx, Qy
 
-    #    def disvec_direction(self, s, x1, y1, cdirection):
-    #        pass
-    #
-    #    def discharge_across_line(self, x1, y1, x2,  y2, layers=None):
-    #        if layers is None:
-    #            nlayers = self.aq.find_aquifer_data(x1, y1).naq
-    #        else:
-    #            nlayers = len(np.atleast_1d(layers))
-    #        z1 = x1 + y1 * 1j
-    #        z2 = x2 + y2 * 1j
-    #        normvec = (z2 - z1) / np.abs(z2 - z1) * np.exp(-np.pi * 1j / 2)
-    #        disvec = self.disvec(xg[i], yg[i], layers)
+    def stream_function(self, x, radial=False):
+        """Stream function along line x (or r).
+
+        Only applicable to models where flow is 1D (along a line), e.g. flow in a
+        vertical cross-section or flow in a radially symmetric model.
+
+        Parameters
+        ----------
+        x : array
+            x values of line
+        radial : bool, optional
+            if `True`, assumes that flow is radially symmetric and multiplies result
+            by x, by default `False`
+
+        Returns
+        -------
+        stream_function : array
+            stream function along line, size (2*naq, len(x))
+        zflow : array
+            z values of flow grid, size (2*naq,)
+        """
+        naq = self.aq.naq
+        nx = len(x)
+        Qx = self.disvecalongline(x, np.zeros_like(x))[0]  # only Qx
+        if radial:
+            Qx *= x
+        zflow = np.empty(2 * naq)
+        for i in range(self.aq.naq):
+            aq = self.aq.find_aquifer_data(x[0], 0)  # use first x as reference
+            zflow[2 * i] = aq.zaqtop[i]
+            zflow[2 * i + 1] = aq.zaqbot[i]
+        Qx = Qx[::-1]  # set upside down
+        Qxgrid = np.empty((2 * naq, nx))
+        Qxgrid[0] = 0
+        for i in range(naq - 1):
+            Qxgrid[2 * i + 1] = Qxgrid[2 * i] - Qx[i]
+            Qxgrid[2 * i + 2] = Qxgrid[2 * i + 1]
+        Qxgrid[-1] = Qxgrid[-2] - Qx[-1]
+        Qxgrid = Qxgrid[::-1]  # index 0 at top
+        return Qxgrid, zflow
 
     def velocity(self, x, y, z):
+        """Compute velocity at point x, y, z.
+
+        Parameters
+        ----------
+        x : float
+        y : float
+        z : float
+
+        Returns
+        -------
+        velocity : array
+            velocity vector (vx, vy, vz) at point x, y, z
+        """
         return self.velocomp(x, y, z)
+
+    def velocity_array(self, x, y, z, show_progress=True, parallel=False):
+        """Compute velocity grid.
+
+        Parameters
+        ----------
+        x : 1d-array
+            x values
+        y : 1d-array
+            y values
+        z : 1d-array
+            z values
+        show_progress : bool
+            show computation progress with tqdm progressbar if tqdm is installed.
+            Default is True.
+        parallel : bool or int, optional
+            if `True`, computes velocity grid in parallel using multi processing,
+            by default `False`. If an integer is provided, it is interpreted
+            as the number of processes to use.
+
+        Returns
+        -------
+        velocity : array
+            velocity vector (vx, vy, vz) at each point in grid,
+            size (3, len(x))
+        """
+        parallel, process_map, tqdm = check_tqdm_parallel(parallel)
+        x = np.atleast_1d(x)
+        y = np.atleast_1d(y)
+        z = np.atleast_1d(z)
+        npts = len(x)
+        assert npts == len(y) == len(z), "x, y and z must have the same length"
+        v = np.empty((3, npts))
+        if not parallel:
+            for i in (
+                tqdm(range(npts), disable=not show_progress) if tqdm else range(npts)
+            ):
+                try:
+                    vv = self.velocomp(x[i], y[i], z[i])
+                except (ZeroDivisionError, ValueError):
+                    vv = np.full((3,), np.nan)
+                v[:, i] = vv
+        else:
+            nproc = mp.cpu_count() if parallel is True else int(parallel)
+            chunksize = max(1, npts // (4 * nproc)) if nproc > 0 else 1
+            tasks = [(self, x[i], y[i], z[i], i) for i in range(npts)]
+            results = process_map(
+                _compute_velocity_mp,
+                tasks,
+                total=npts,
+                desc="velocity array",
+                disable=not show_progress,
+                tqdm_class=tqdm,
+                max_workers=nproc,
+                chunksize=chunksize,
+            )
+            for i, result in results:
+                v[:, i] = result
+
+        return v
+
+    def velocity_grid(self, xg, yg, zg, show_progress=True, parallel=False):
+        """Compute velocities for an array of points.
+
+        Parameters
+        ----------
+        xg : 1d-array
+            x values of grid
+        yg : 1d-array
+            y values of grid
+        zg : 1d-array
+            z values of grid
+        show_progress : bool, optional
+            if `True`, shows progress bar when computing velocity grid, by default `True`
+        parallel : bool or int, optional
+            if `True`, computes velocity grid in parallel using multiprocessing,
+            by default `False`. If an integer is provided, it specifies the number of
+            processes to use.
+
+        Returns
+        -------
+        velocity : array
+            velocity vector (vx, vy, vz) at each point in grid,
+            size (3, len(zg), len(yg), len(xg))
+        """
+        xg = np.atleast_1d(xg)
+        yg = np.atleast_1d(yg)
+        zg = np.atleast_1d(zg)
+        x, y, z = np.meshgrid(xg, yg, zg)
+        v = self.velocity_array(
+            x.ravel(),
+            y.ravel(),
+            z.ravel(),
+            show_progress=show_progress,
+            parallel=parallel,
+        )
+        return v.reshape((3, len(yg), len(xg), len(zg))).transpose((0, 3, 1, 2))
 
     def velocomp(self, x, y, z, aq=None, layer_ltype=None):
         if aq is None:
@@ -553,32 +879,6 @@ class Model:
             return sol
         return
 
-    def write(self):
-        rv = self.modelname + " = " + self.name + "(\n"
-        for key in self.inputargs[1:]:  # The first argument (self) is ignored
-            if isinstance(self.inputvalues[key], np.ndarray):
-                rv += (
-                    key
-                    + " = "
-                    + np.array2string(self.inputvalues[key], separator=",")
-                    + ",\n"
-                )
-            elif isinstance(self.inputvalues[key], str):
-                rv += key + " = '" + self.inputvalues[key] + "',\n"
-            else:
-                rv += key + " = " + str(self.inputvalues[key]) + ",\n"
-        rv += ")\n"
-        return rv
-
-    def writemodel(self, fname):
-        self.initialize()  # So that the model can be written without solving first
-        f = open(fname, "w")
-        f.write("from timflow.steady import *\n")
-        f.write(self.write())
-        for e in self.elementlist:
-            f.write(e.write())
-        f.close()
-
     def aquifer_summary(self):
         """Return DataFrame with summary of aquifer(s) parameters in model.
 
@@ -587,11 +887,16 @@ class Model:
         pandas.DataFrame
             dataframe with summary of aquifer(s) parameters
         """
+        if type(self) is Model:
+            raise NotImplementedError(
+                "aquifer_summary is not supported for the base Model class; "
+                "use ModelMaq, Model3D instead."
+            )
         aqs = {}
         if not isinstance(self.aq, SimpleAquifer):
             aqs["background"] = self.aq.summary()
-        for i, iaq in enumerate(self.aq.inhomlist):
-            aqs[f"inhom{i}"] = iaq.summary()
+        for iaq in self.aq.inhomdict.values():
+            aqs[iaq.name] = iaq.summary()
         if aqs:
             return pd.concat(aqs, axis=0)
 
@@ -631,15 +936,15 @@ class Model:
     def vcontoursf1D(self, *args, **kwargs):
         warnings.warn(
             "The 'ml.vcontoursf1D' method is deprecated. "
-            "Use 'ml.plots.vcontoursf1D' instead.",
+            "Use 'ml.plots.vcontour_stream_function' instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.plots.vcontoursf1D(*args, **kwargs)
+        return self.plots.vcontour_stream_function(*args, **kwargs)
 
 
 class ModelMaq(Model):
-    """Create a model by specifying a mult-aquifer sequence of aquifer-leaky layer.
+    """Create a model by specifying a multi-aquifer sequence of aquifer-leaky layer.
 
     Parameters
     ----------
@@ -681,9 +986,8 @@ class ModelMaq(Model):
             c = []
         if z is None:
             z = [1, 0]
-        self.storeinput(inspect.currentframe())
         kaq, c, npor, ltype = param_maq(kaq, z, c, npor, topboundary)
-        super().__init__(kaq, c, z, npor, ltype)
+        super().__init__(kaq=kaq, z=z, c=c, npor=npor, ltype=ltype)
         self.name = "ModelMaq"
         if self.aq.ltype[0] == "l":
             ConstantStar(self, hstar, aq=self.aq)
@@ -760,13 +1064,13 @@ class Model3D(Model):
         """
         if z is None:
             z = [1, 0]
-        self.storeinput(inspect.currentframe())
         kaq, kzoverkh, c, npor, ltype = param_3d(
             kaq, z, kzoverkh, npor, topboundary, topres
         )
         if topboundary == "semi":
             z = np.hstack((z[0] + topthick, z))
-        super().__init__(kaq, c, z, npor, ltype)
+        model3d = True
+        super().__init__(kaq=kaq, z=z, c=c, npor=npor, ltype=ltype, model3d=model3d)
         self.aq.kzoverkh = kzoverkh  # add kzoverkh to aquifer object
         self.name = "Model3D"
         if self.aq.ltype[0] == "l":
@@ -795,12 +1099,13 @@ class ModelXsection(Model):
     def __init__(self, naq=1):
         self.elementlist = []
         self.elementdict = {}  # only elements that have a label
-        self.aq = SimpleAquifer(naq)
-        self.modelname = "ml"  # Used for writing out input
+        self.aq = SimpleAquifer(self, naq)
 
         self.plots = PlotSteady(self)
         self.name = "ModelXsection"
         self.model_type = "steady"
+
+        self.initialized = False
 
     def check_inhoms(self):
         """Check inhoms.
@@ -810,14 +1115,16 @@ class ModelXsection(Model):
         """
         # check aquifers
         naqs = {}
-        for inhom in self.aq.inhomlist:
+        for inhom in self.aq.inhomdict.values():
             naqs[inhom.name] = inhom.naq
         check = np.array(list(naqs.values())) == self.aq.naq
         if not check.all():
             raise ValueError(f"Number of aquifers does not match {self.aq.naq}:\n{naqs}")
         # check -inf to inf
-        xmin = min([inhom.x1 for inhom in self.aq.inhomlist])
-        xmax = max([inhom.x2 for inhom in self.aq.inhomlist])
+        x1list = np.array([inhom.x1 for inhom in self.aq.inhomdict.values()])
+        x2list = np.array([inhom.x2 for inhom in self.aq.inhomdict.values()])
+        xmin = x1list.min()
+        xmax = x2list.max()
         if not (np.isinf(xmin) and np.sign(xmin) < 0):
             raise ValueError(
                 f"XsectionModel boundary error: left-most boundary must be at x=-np.inf, "
@@ -832,6 +1139,16 @@ class ModelXsection(Model):
                 f"x=+np.inf, got x={xmax}. "
                 f"(Model may consist of multiple Xsections, but their combined "
                 f"domain must span from -∞ to +∞)"
+            )
+        # check domain for gaps
+        if not np.allclose(x1list[1:], x2list[:-1]):
+            mask = (x1list[1:] - x2list[:-1]) > 1e-10
+            x1missing = x1list[1:][mask]
+            x2missing = x2list[:-1][mask]
+            msg = [f"{ix1}-{ix2}" for ix1, ix2 in zip(x2missing, x1missing, strict=True)]
+            raise ValueError(
+                "XsectionModel boundary error: missing section(s) between: "
+                + ", ".join(msg)
             )
 
         # # shared boundary check

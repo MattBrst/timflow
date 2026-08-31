@@ -7,7 +7,6 @@ Example::
     River1D(ml, xls=0, hls=1, layers=0)
 """
 
-import inspect  # Used for storing the input
 import warnings
 
 import matplotlib.pyplot as plt
@@ -70,12 +69,12 @@ class LineSink1DBase(Element):
         self.cosnorm = np.cos(self.theta_norm_out) * np.ones(self.ncp)
         self.sinnorm = np.sin(self.theta_norm_out) * np.ones(self.ncp)
         if self.wh == "H":
-            self.wh = self.aq.Haq[self.layers]
+            self._wh = self.aq.Haq[self.layers]
         elif self.wh == "2H":
-            self.wh = 2.0 * self.aq.Haq[self.layers]
+            self._wh = 2.0 * self.aq.Haq[self.layers]
         elif np.isscalar(self.wh):
-            self.wh = self.wh * np.ones(self.nlayers)
-        self.resfac = self.aq.Haq[self.layers] * self.res / self.wh
+            self._wh = self.wh * np.ones(self.nlayers)
+        self.resfac = self.aq.Haq[self.layers] * self.res / self._wh
 
     def potinf(self, x, y, aq=None):
         if aq is None:
@@ -170,7 +169,7 @@ class LineSink1D(LineSink1DBase, MscreenWellEquation):
     """
 
     def __init__(self, model, xls=0, sigls=1, layers=0, label=None):
-        self.storeinput(inspect.currentframe())
+        """Initialize a steady 1D line-sink with specified discharge per length."""
         LineSink1DBase.__init__(
             self,
             model,
@@ -226,7 +225,7 @@ class River1D(LineSink1DBase, HeadEquation):
     """
 
     def __init__(self, model, xls=0, hls=1, res=0, wh=1, layers=0, label=None):
-        self.storeinput(inspect.currentframe())
+        """Initialize a steady 1D line-sink with a specified head."""
         LineSink1DBase.__init__(
             self,
             model,

@@ -16,7 +16,11 @@ from timflow.transient.linedoublet import (
     LeakyWall,
     LeakyWallString,
 )
-from timflow.transient.linedoublet1d import LeakyLineDoublet1D, LeakyWall1D
+from timflow.transient.linedoublet1d import (
+    ImpermeableWall1D,
+    LeakyLineDoublet1D,  # deprecated
+    LeakyWall1D,
+)
 from timflow.transient.linesink import (
     DitchString,
     HeadLineSink,  # deprecated
@@ -24,21 +28,23 @@ from timflow.transient.linesink import (
     HeadLineSinkString,  # deprecated
     LineSink,
     LineSinkDitchString,  # deprecated
+    LineSinkHo,
     River,
     RiverHo,
     RiverString,
 )
 from timflow.transient.linesink1d import (
-    DischargeLineSink1D,
-    FluxDiffLineSink1D,
-    HeadDiffLineSink1D,
     HeadLineSink1D,  # deprecated
     LineSink1D,
-    LineSink1DBase,
     River1D,
 )
 
 # Import all classes and functions
 from timflow.transient.model import Model3D, ModelMaq, ModelXsection
 from timflow.transient.trace import timtrace, timtraceline
-from timflow.transient.well import DischargeWell, HeadWell, Well, WellTest
+from timflow.transient.well import (
+    DischargeWell,
+    HeadWell,
+    Well,
+    WellString,
+)
