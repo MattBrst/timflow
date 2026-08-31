@@ -840,9 +840,11 @@ class ModelMaq(TimModel):
     leffll : float, array or list
         loading efficiency of the leaky layer
         only used when topboundary='semi' and hstar varies with time
-    topboundary : string, 'conf' or 'semi' (default is 'conf')
-        indicating whether the top is confined ('conf') or
-        semi-confined ('semi')
+    topboundary : string, 'confined', 'phreatic', 'semi', or 'leaky' (default is 'conf')
+        indicating whether the top is confined ('con' is enough), phreatic ('phr' is
+        enough), semi-confined ('sem' is enough), or a leaky layer ('lea' is enough).
+        When phreatic, the storage coefficient (Saq) of the top model layer is
+        treated as phreatic storage (and not multiplied with the aquifer thickness)
     phreatictop : boolean
         the storage coefficient of the top model layer is treated as
         phreatic storage (and not multiplied with the aquifer thickness)
@@ -873,26 +875,26 @@ class ModelMaq(TimModel):
         poraq=[0.3],
         porll=[0.3],
         topboundary="conf",
-        phreatictop=False,
+        phreatictop=None,
         tmin=1,
         tmax=10,
         tstart=0,
         M=10,
         steady=None,
     ):
-        self.storeinput(inspect.currentframe())
+        if phreatictop is None:
+            phreatictop = False
+            if topboundary[:3] == "phr":
+                phreatictop = True
+        else:  # phreatictop is not None
+            warn(
+                "'phreatictop' is deprecated and will be removed in a future version. "
+                "'phreatictop' is set to False unless topboundary='phreatic'.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         kaq, Haq, Hll, c, Saq, Sll, leffaq, leffll, poraq, porll, ltype = param_maq(
-            kaq,
-            z,
-            c,
-            Saq,
-            Sll,
-            leffaq,
-            leffll,
-            poraq,
-            porll,
-            topboundary,
-            phreatictop,
+            kaq, z, c, Saq, Sll, leffaq, leffll, poraq, porll, topboundary, phreatictop
         )
         super().__init__(
             kaq,
@@ -953,10 +955,16 @@ class Model3D(TimModel):
     leffll : float, array or list
         loading efficiency of the leaky layer
         only used when topboundary='semi' and hstar varies with time
-    topboundary : string, 'conf' or 'semi' (default is 'conf')
-        indicating whether the top is confined ('conf') or
-        semi-confined ('semi').
-        currently only implemented for 'conf'
+    topboundary : string, 'confined', 'phreatic', or 'semi' (default is 'conf')
+        indicating whether the top is confined ('con' is enough), phreatic
+        ('phr' is enough) or semi-confined ('sem' is enough).
+        When 'phreatic', the storage coefficient (Saq) of the top model layer is
+        treated as phreatic storage (and not multiplied with the aquifer thickness)
+        When 'semi', the topres and topthick must be specified.
+    topres : float
+        resistance of top semi-confining layer, only read if topboundary='semi'
+    topthick: float
+        thickness of top semi-confining layer, only read if topboundary='semi'
     topres : float
         resistance of top semi-confining layer, only read if topboundary='semi'
     topthick: float
@@ -989,7 +997,7 @@ class Model3D(TimModel):
         leffll=0,
         poraq=0.3,
         topboundary="conf",
-        phreatictop=False,
+        phreatictop=None,
         topres=0,
         topthick=0,
         topSll=0,
@@ -1001,7 +1009,17 @@ class Model3D(TimModel):
         steady=None,
     ):
         """Z must have the length of the number of layers + 1."""
-        self.storeinput(inspect.currentframe())
+        if phreatictop is None:
+            phreatictop = False
+            if topboundary[:3] == "phr":
+                phreatictop = True
+        else:  # phreatictop is not None
+            warn(
+                "'phreatictop' is deprecated and will be removed in a future version. "
+                "'phreatictop' is set to False unless topboundary='phreatic'.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         kaq, Haq, Hll, c, Saq, Sll, leffaq, leffll, poraq, porll, ltype, z = param_3d(
             kaq,
             z,

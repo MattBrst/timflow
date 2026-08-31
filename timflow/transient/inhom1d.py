@@ -430,23 +430,24 @@ class XsectionMaq(Xsection):
         poraq=0.3,
         porll=0.3,
         topboundary="conf",
-        phreatictop=False,
+        phreatictop=None,
         tsandhstar=None,
         tsandN=None,
         name=None,
     ):
+        if phreatictop is None:
+            phreatictop = False
+            if topboundary[:3] == "phr":
+                phreatictop = True
+        else:  # phreatictop is not None
+            warn(
+                "'phreatictop' is deprecated and will be removed in a future version. "
+                "'phreatictop' is set to False unless topboundary='phreatic'.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         kaq, Haq, Hll, c, Saq, Sll, leffaq, leffll, poraq, porll, ltype = param_maq(
-            kaq,
-            z,
-            c,
-            Saq,
-            Sll,
-            leffaq,
-            leffll,
-            poraq,
-            porll,
-            topboundary,
-            phreatictop,
+            kaq, z, c, Saq, Sll, leffaq, leffll, poraq, porll, topboundary, phreatictop
         )
         super().__init__(
             model,
@@ -537,7 +538,7 @@ class Xsection3D(Xsection):
         leffll=0,
         poraq=0.3,
         topboundary="conf",
-        phreatictop=False,
+        phreatictop=None,
         topres=0,
         topthick=0,
         topSll=0,
@@ -546,6 +547,17 @@ class Xsection3D(Xsection):
         tsandN=None,
         name=None,
     ):
+        if phreatictop is None:
+            phreatictop = False
+            if topboundary[:3] == "phr":
+                phreatictop = True
+        else:  # phreatictop is not None
+            warn(
+                "'phreatictop' is deprecated and will be removed in a future version. "
+                "'phreatictop' is set to False unless topboundary='phreatic'.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         kaq, Haq, Hll, c, Saq, Sll, leffaq, leffll, poraq, porll, ltype, z = param_3d(
             kaq,
             z,
