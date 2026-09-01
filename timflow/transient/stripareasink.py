@@ -181,7 +181,7 @@ class HstarXsection(Element):
             aq = self.model.aq.find_aquifer_data(x, y)
         rv = np.zeros((self.nparam, aq.naq, self.model.npval), dtype=complex)
         if aq == self.aq:
-            #rv[:] = self.term + self.term2 + self.nbarold
+            # rv[:] = self.term + self.term2 + self.nbarold
             rv[:] = self.term + self.term2 + self.nbar
         return rv
 
