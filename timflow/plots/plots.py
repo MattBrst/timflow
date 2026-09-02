@@ -661,6 +661,8 @@ class PlotBase:
                 c_unitstr = ""
                 ss_unitstr = ""
             paramtxt = cstr + c_unitstr + sep + sstr + ss_unitstr
+            if hasattr(self._ml.aq, "leffll") and self._ml.aq.leffll[lli] != 0:
+                paramtxt += f"{sep}$\\beta$ = {self._ml.aq.leffll[lli]:{fmt}}"
 
         ax.text(
             r0 + 0.75 * r if labels else r0 + 0.5 * r,
