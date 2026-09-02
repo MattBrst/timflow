@@ -341,7 +341,7 @@ class Xsection(AquiferData):
                         paramtxt = cstr_with_unit + sep + sstr_with_unit
                     else:
                         paramtxt = cstr_with_unit + sep + sstr_with_unit
-                    if self.leffll[lli] != 0:
+                    if hasattr(self, "leffll") and self.leffll[lli] != 0:
                         paramtxt += f"{sep}$\\beta$ = {self.leffll[lli]:{fmt}}"
                     ax.text(
                         r0 + 0.75 * r if labels else r0 + 0.5 * r,
