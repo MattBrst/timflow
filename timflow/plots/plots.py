@@ -731,6 +731,8 @@ class PlotBase:
                 paramtxt += f"{sep}$S$ = {self._ml.aq.Saq[aqi]:{fmt}}"
             else:
                 paramtxt += f"{sep}$S_s$ = {self._ml.aq.Saq[aqi]:{ssfmt}}" + ss_unitstr
+            if self._ml.aq.leffaq[aqi] != 0:
+                paramtxt += f"{sep}$\\beta$ = {self._ml.aq.leffaq[aqi]:{fmt}}"
 
         ax.text(
             r0 + 0.75 * r if labels else r0 + 0.5 * r,
