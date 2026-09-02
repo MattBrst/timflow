@@ -50,12 +50,18 @@ def param_maq(
             Sll = Sll * np.ones(naq - 1)
         if len(porll) == 1:
             porll = porll * np.ones(naq - 1)
+        if len(leffaq) == 1:
+            leffaq = leffaq * np.ones(naq)
+        if len(leffll) == 1:
+            leffll = leffll * np.ones(naq - 1)
         assert len(kaq) == naq, "Error: Length of kaq needs to be " + str(naq)
         assert len(Saq) == naq, "Error: Length of Saq needs to be " + str(naq)
         assert len(poraq) == naq, "Error: Length of poraq needs to be " + str(naq)
         assert len(c) == naq - 1, "Error: Length of c needs to be " + str(naq - 1)
         assert len(Sll) == naq - 1, "Error: Length of Sll needs to be " + str(naq - 1)
         assert len(porll) == naq - 1, "Error: Length of porll needs to be " + str(naq - 1)
+        assert len(leffaq) == naq, "Error: Length of leffaq needs to be " + str(naq)
+        assert len(leffll) == naq - 1, "Error: Length of leffll needs to be " + str(naq - 1)
         Haq = H[::2]
         assert np.all(Haq > 0), "Error: Some thicknesses of aquifer layers are negative"
         Hll = H[1::2]
@@ -65,6 +71,7 @@ def param_maq(
         Sll = np.hstack((1e-20, Sll))
         Hll = np.hstack((1e-20, Hll))
         porll = np.hstack((1e-20, porll))
+        leffll = np.hstack((0, leffll))
         # layertype
         nlayers = len(z) - 1
         ltype = np.array(nlayers * ["a"])
