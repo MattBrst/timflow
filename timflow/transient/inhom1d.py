@@ -47,8 +47,10 @@ class Xsection(AquiferData):
         Specific storage of the leaky layers.
     leffaq : array
         loading efficiency of the aquifer
+        only used when topboundary='semi' and hstar varies with time
     leffll : array
         loading efficiency of the leaky layer
+        only used when topboundary='semi' and hstar varies with time
     poraq : array
         Porosities of the aquifers.
     porll : array
@@ -437,8 +439,10 @@ class XsectionMaq(Xsection):
         Specific storage of the leaky layers.
     leffaq : array
         loading efficiency of the aquifer
+        only used when topboundary='semi' and hstar varies with time
     leffll : array
         loading efficiency of the leaky layer
+        only used when topboundary='semi' and hstar varies with time
     poraq : array
         Porosities of the aquifers.
     porll : array
@@ -539,9 +543,11 @@ class Xsection3D(Xsection):
         Ratio of vertical hydraulic conductivity to horizontal hydraulic
         conductivity.
     leffaq : array
-        Loading efficiency
+        loading efficiency of the aquifer
+        only used when topboundary='semi' and hstar varies with time
     leffll : array
         loading efficiency of the leaky layer
+        only used when topboundary='semi' and hstar varies with time
     poraq : array
         Porosities of the aquifers.
     topboundary : string, 'confined', 'phreatic', or 'semi' (default is 'conf')
