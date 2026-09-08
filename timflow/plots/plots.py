@@ -652,7 +652,7 @@ class PlotBase:
             # Transient: resistance c and storage Sll
             ssfmt = ".2e"
             cstr = f"$c$ = {self._ml.aq.c[lli]:{fmt}}"
-            Slli = self._ml.aq.Sll[lli] 
+            Slli = self._ml.aq.Sll[lli]
             if Slli > 1e-20:
                 sstr = f"$S_s$ = {Slli:{ssfmt}}"
             else:
@@ -737,7 +737,7 @@ class PlotBase:
                 paramtxt += f"{sep}$S$ = {self._ml.aq.Saq[aqi]:{fmt}}"
             else:
                 paramtxt += f"{sep}$S_s$ = {self._ml.aq.Saq[aqi]:{ssfmt}}" + ss_unitstr
-            if self._ml.aq.leffaq[aqi] != 0:
+            if hasattr(self._ml.aq, "leffaq") and self._ml.aq.leffaq[aqi] != 0:
                 paramtxt += f"{sep}$\\beta$ = {self._ml.aq.leffaq[aqi]:{fmt}}"
 
         ax.text(
