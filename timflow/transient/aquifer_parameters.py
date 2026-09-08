@@ -52,6 +52,8 @@ def param_maq(
             porll = porll * np.ones(naq - 1)
         if len(leffaq) == 1:
             leffaq = leffaq * np.ones(naq)
+        if len(leffll) == 1:
+            leffll = leffll * np.ones(naq)
         assert len(kaq) == naq, "Error: Length of kaq needs to be " + str(naq)
         assert len(Saq) == naq, "Error: Length of Saq needs to be " + str(naq)
         assert len(poraq) == naq, "Error: Length of poraq needs to be " + str(naq)
@@ -59,6 +61,7 @@ def param_maq(
         assert len(Sll) == naq - 1, "Error: Length of Sll needs to be " + str(naq - 1)
         assert len(porll) == naq - 1, "Error: Length of porll needs to be " + str(naq - 1)
         assert len(leffaq) == naq, "Error: Length of leffaq needs to be " + str(naq)
+        assert len(leffll) == naq, "Error: Length of leffll needs to be " + str(naq)
         Haq = H[::2]
         assert np.all(Haq > 0), "Error: Some thicknesses of aquifer layers are negative"
         Hll = H[1::2]

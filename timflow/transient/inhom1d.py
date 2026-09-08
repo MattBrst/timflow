@@ -338,14 +338,18 @@ class Xsection(AquiferData):
                     )
                 if params:
                     cstr = f"$c$ = {self.c[lli]:{fmt}}"
-                    sstr = f"$S_s$ = {self.Sll[lli]:{ssfmt}}"
+                    Slli = self.Sll[lli]
+                    if Slli > 1e-20:
+                        sstr = f"$S_s$ = {Slli:{ssfmt}}"
+                    else:
+                        sstr = "$S_s$ = 0.0"
                     cstr_with_unit = cstr + c_unitstr
                     sstr_with_unit = sstr + ss_unitstr
                     if sep == "\n":
                         paramtxt = cstr_with_unit + sep + sstr_with_unit
                     else:
                         paramtxt = cstr_with_unit + sep + sstr_with_unit
-                    if hasattr(self, "leffll") and self.leffll[lli] != 0:
+                    if hasattr(self, "leffll") and self.leffll[lli] != 0.0:
                         paramtxt += f"{sep}$\\beta$ = {self.leffll[lli]:{fmt}}"
                     ax.text(
                         r0 + 0.75 * r if labels else r0 + 0.5 * r,
@@ -382,7 +386,7 @@ class Xsection(AquiferData):
                     paramtxt = khstr + kh_unitstr + "\n" + sstr + ss_unitstr
                 else:
                     paramtxt = khstr + kh_unitstr + sep + sstr + ss_unitstr
-                if self.leffaq[aqi] != 0:
+                if self.leffaq[aqi] != 0.0:
                     paramtxt += f"{sep}$\\beta$ = {self.leffaq[aqi]:{fmt}}"
                 ax.text(
                     r0 + 0.75 * r if labels else r0 + 0.5 * r,
