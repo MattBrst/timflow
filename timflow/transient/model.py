@@ -671,7 +671,7 @@ class Model:
     def strength(self, elabel, t):
         return self.elementdict[elabel].strength(t - self.tstart)
 
-    def headalongline(self, x, y, t, layers=None):
+    def headalongline(self, x, y, t, layers=None, neglect_steady=False):
         """Head along line or curve.
 
         Parameters
@@ -684,6 +684,9 @@ class Model:
             times for which grid is returned
         layers : integer, list or array, optional
             layers for which grid is returned
+        neglect_steady : bool, optional
+            if `True`, the steady-state contribution from `self.steady` (if set)
+            is not added to the result, by default `False`
 
         Returns
         -------
@@ -701,7 +704,7 @@ class Model:
         t = np.atleast_1d(t)
         h = np.zeros((Nlayers, len(t), nx))
         for i in range(nx):
-            h[:, :, i] = self.head(xg[i], yg[i], t, layers)
+            h[:, :, i] = self.head(xg[i], yg[i], t, layers, neglect_steady=neglect_steady)
         return h
 
     def disvecalongline(self, x, y, t, layers=None):
