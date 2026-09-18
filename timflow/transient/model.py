@@ -704,9 +704,7 @@ class Model:
         t = np.atleast_1d(t)
         h = np.zeros((Nlayers, len(t), nx))
         for i in range(nx):
-            h[:, :, i] = self.head(
-                xg[i], yg[i], t, layers, neglect_steady=neglect_steady
-            )
+            h[:, :, i] = self.head(xg[i], yg[i], t, layers, neglect_steady=neglect_steady)
         return h
 
     def disvecalongline(self, x, y, t, layers=None):
