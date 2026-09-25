@@ -1620,5 +1620,4 @@ class Calibrate:
             i += 1
         axes[-1].set_xlabel(f"time{time_unit}")
         fig.align_ylabels(axes)
-        # fig.tight_layout()
         return fig, axes
