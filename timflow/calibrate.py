@@ -1512,7 +1512,9 @@ class Calibrate:
         # on; for other model types (e.g. areal models) fall back to the
         # observation name instead.
         _model_for_type = (
-            self.transient_model if self.transient_model is not None else self.steady_model
+            self.transient_model
+            if self.transient_model is not None
+            else self.steady_model
         )
         is_xsection = type(_model_for_type).__name__ == "ModelXsection"
         if is_xsection:
@@ -1523,7 +1525,7 @@ class Calibrate:
         units = units or {}
         head_unit = f" [{units['head']}]" if "head" in units else ""
         time_unit = f" [{units['time']}]" if "time" in units else ""
-        x_unit = f" [{units['x']}]" if "x" in units else ""
+        x_unit = f" {units['x']}" if "x" in units else ""
 
         # Default styling
         obs_kw: dict = {"color": "k", "marker": ".", "linestyle": "none"}
