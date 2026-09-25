@@ -1544,7 +1544,7 @@ class Calibrate:
 
         # Create subplots
         fig, ax_array = plt.subplots(
-            n_obs, 1, sharex=True, sharey=sharey, figsize=figsize
+            n_obs, 1, sharex=True, sharey=sharey, figsize=figsize, layout="constrained"
         )
         axes = np.atleast_1d(ax_array)
 
@@ -1620,5 +1620,5 @@ class Calibrate:
             i += 1
         axes[-1].set_xlabel(f"time{time_unit}")
         fig.align_ylabels(axes)
-        fig.tight_layout()
+        # fig.tight_layout()
         return fig, axes
