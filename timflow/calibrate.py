@@ -1481,9 +1481,9 @@ class Calibrate:
             If ``True``, all subplots share the same y-axis limits.
             Default is ``False``.
         units : dict, optional
-            Optional units to append to the axis labels, e.g.
-            ``{"head": "m", "time": "days"}``. Same ``dict``-of-units
-            convention used by :func:`timflow.plots.plots.xsection`.
+            Optional units to append to the axis labels and, for
+            cross-section models, the per-subplot ``x`` value in the title,
+            e.g. ``{"head": "m", "time": "days", "x": "m"}``.
 
         Returns
         -------
@@ -1523,6 +1523,7 @@ class Calibrate:
         units = units or {}
         head_unit = f" [{units['head']}]" if "head" in units else ""
         time_unit = f" [{units['time']}]" if "time" in units else ""
+        x_unit = f" [{units['x']}]" if "x" in units else ""
 
         # Default styling
         obs_kw: dict = {"color": "k", "marker": ".", "linestyle": "none"}
@@ -1601,10 +1602,15 @@ class Calibrate:
             model_kw["color"] = f"C{i}"  # cycle through colors for each subplot
             ax.plot(t_plot[mask], h_obs_plot[mask], label=obs_label, **obs_kw)
             ax.plot(t_plot[mask], h_mod[mask], **{**model_kw, "label": model_label})
+
             if is_xsection:
-                ax.set_title(f"{name}: x={obs.x:.1f}, layer={obs.layer}", loc="right")
+                ax.set_title(
+                    f"x: {obs.x:.1f}{x_unit}, layer: {obs.layer}",
+                    loc="right",
+                    fontsize="medium",
+                )
             else:
-                ax.set_title(name, loc="right")
+                ax.set_title(f"layer: {obs.layer}", loc="right", fontsize="medium")
             ax.set_ylabel(f"head{head_unit}")
             ax.grid(True)
             ax.legend(loc=(0, 1), frameon=False, ncol=2)
