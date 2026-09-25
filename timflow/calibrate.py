@@ -1619,5 +1619,6 @@ class Calibrate:
             ax.set_xlim(left=t_plot[mask][0], right=t_plot[mask][-1])
             i += 1
         axes[-1].set_xlabel(f"time{time_unit}")
+        fig.align_ylabels(axes)
         fig.tight_layout()
         return fig, axes
